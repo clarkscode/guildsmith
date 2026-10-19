@@ -1,0 +1,16 @@
+{
+  "id": "2",
+  "username": "guildsmith",
+  "global_name": null,
+  "avatar": null,
+  "discriminator": "0",
+  "public_flags": 0,
+  "flags": 0,
+  "bot": true,
+  "banner": null,
+  "accent_color": null,
+  "locale": "en-US",
+  "mfa_enabled": true,
+  "verified": true,
+  "email": null
+}

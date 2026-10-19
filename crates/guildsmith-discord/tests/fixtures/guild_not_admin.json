@@ -1,0 +1,116 @@
+{
+  "id": "1000",
+  "name": "Guildsmith Lab",
+  "icon": null,
+  "description": null,
+  "splash": null,
+  "discovery_splash": null,
+  "banner": null,
+  "owner_id": "1",
+  "application_id": null,
+  "region": null,
+  "afk_channel_id": null,
+  "afk_timeout": 300,
+  "system_channel_id": null,
+  "widget_enabled": false,
+  "widget_channel_id": null,
+  "verification_level": 1,
+  "default_message_notifications": 1,
+  "explicit_content_filter": 2,
+  "mfa_level": 0,
+  "nsfw_level": 0,
+  "features": [
+    "NEWS",
+    "COMMUNITY"
+  ],
+  "premium_tier": 1,
+  "premium_subscription_count": 2,
+  "premium_progress_bar_enabled": false,
+  "preferred_locale": "en-US",
+  "rules_channel_id": null,
+  "public_updates_channel_id": null,
+  "safety_alerts_channel_id": null,
+  "system_channel_flags": 0,
+  "vanity_url_code": null,
+  "max_members": 500000,
+  "max_video_channel_users": 25,
+  "emojis": [],
+  "stickers": [],
+  "roles": [
+    {
+      "id": "1000",
+      "name": "@everyone",
+      "color": 0,
+      "colors": {
+        "primary_color": 0,
+        "secondary_color": null,
+        "tertiary_color": null
+      },
+      "hoist": false,
+      "icon": null,
+      "unicode_emoji": null,
+      "position": 0,
+      "permissions": "3214336",
+      "managed": false,
+      "mentionable": false,
+      "flags": 0
+    },
+    {
+      "id": "9",
+      "name": "Guildsmith",
+      "color": 0,
+      "colors": {
+        "primary_color": 0,
+        "secondary_color": null,
+        "tertiary_color": null
+      },
+      "hoist": false,
+      "icon": null,
+      "unicode_emoji": null,
+      "position": 3,
+      "permissions": "268436496",
+      "managed": true,
+      "mentionable": false,
+      "flags": 0,
+      "tags": {
+        "bot_id": "2"
+      }
+    },
+    {
+      "id": "10",
+      "name": "Moderator",
+      "color": 3909981,
+      "colors": {
+        "primary_color": 3909981,
+        "secondary_color": 16711680,
+        "tertiary_color": null
+      },
+      "hoist": true,
+      "icon": null,
+      "unicode_emoji": null,
+      "position": 2,
+      "permissions": "8194",
+      "managed": false,
+      "mentionable": false,
+      "flags": 0
+    },
+    {
+      "id": "11",
+      "name": "Member",
+      "color": 0,
+      "colors": {
+        "primary_color": 0,
+        "secondary_color": null,
+        "tertiary_color": null
+      },
+      "hoist": false,
+      "icon": null,
+      "unicode_emoji": null,
+      "position": 1,
+      "permissions": "0",
+      "managed": false,
+      "mentionable": false,
+      "flags": 0
+    }
+  ]
+}

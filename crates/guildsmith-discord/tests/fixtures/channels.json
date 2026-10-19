@@ -1,0 +1,151 @@
+[
+  {
+    "id": "100",
+    "type": 4,
+    "guild_id": "1000",
+    "name": "Community",
+    "position": 0,
+    "parent_id": null,
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0
+  },
+  {
+    "id": "101",
+    "type": 0,
+    "guild_id": "1000",
+    "name": "general",
+    "position": 1,
+    "parent_id": "100",
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0,
+    "topic": "Talk about anything",
+    "rate_limit_per_user": 5,
+    "last_message_id": null
+  },
+  {
+    "id": "102",
+    "type": 0,
+    "guild_id": "1000",
+    "name": "mod-log",
+    "position": 2,
+    "parent_id": "100",
+    "permission_overwrites": [
+      {
+        "id": "1000",
+        "type": 0,
+        "allow": "0",
+        "deny": "1024"
+      },
+      {
+        "id": "10",
+        "type": 0,
+        "allow": "1024",
+        "deny": "0"
+      }
+    ],
+    "nsfw": false,
+    "flags": 0,
+    "topic": null,
+    "rate_limit_per_user": 0
+  },
+  {
+    "id": "104",
+    "type": 5,
+    "guild_id": "1000",
+    "name": "announcements",
+    "position": 3,
+    "parent_id": "100",
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0,
+    "topic": "News"
+  },
+  {
+    "id": "103",
+    "type": 2,
+    "guild_id": "1000",
+    "name": "Lobby",
+    "position": 4,
+    "parent_id": null,
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0,
+    "bitrate": 64000,
+    "user_limit": 10,
+    "rtc_region": null,
+    "rate_limit_per_user": 0
+  },
+  {
+    "id": "105",
+    "type": 13,
+    "guild_id": "1000",
+    "name": "Town Hall",
+    "position": 5,
+    "parent_id": null,
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0,
+    "bitrate": 64000,
+    "user_limit": 0,
+    "rtc_region": "us-west"
+  },
+  {
+    "id": "106",
+    "type": 15,
+    "guild_id": "1000",
+    "name": "help",
+    "position": 6,
+    "parent_id": null,
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0,
+    "topic": "Ask here",
+    "rate_limit_per_user": 0,
+    "available_tags": [
+      {
+        "id": "201",
+        "name": "question",
+        "moderated": false,
+        "emoji_id": null,
+        "emoji_name": "❓"
+      },
+      {
+        "id": "202",
+        "name": "solved",
+        "moderated": true,
+        "emoji_id": null,
+        "emoji_name": null
+      }
+    ],
+    "default_reaction_emoji": {
+      "emoji_id": null,
+      "emoji_name": "👍"
+    }
+  },
+  {
+    "id": "107",
+    "type": 16,
+    "guild_id": "1000",
+    "name": "gallery",
+    "position": 7,
+    "parent_id": null,
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0,
+    "topic": null,
+    "available_tags": []
+  },
+  {
+    "id": "108",
+    "type": 14,
+    "guild_id": "1000",
+    "name": "directory",
+    "position": 8,
+    "parent_id": null,
+    "permission_overwrites": [],
+    "nsfw": false,
+    "flags": 0
+  }
+]

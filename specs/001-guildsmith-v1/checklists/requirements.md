@@ -35,4 +35,7 @@
 - Rust, twilight, rmcp, TOML, clap, cargo-dist and npm are left out of the spec on purpose. They are recorded in PLAN.md §3 and go into `/speckit-plan`. Discord, Claude Code and Codex are named because they are the product's targets, not implementation choices.
 - Open questions from PLAN.md §11: Q2 (always require a plan identifier) and Q3 (structure only in v1) use the plan's recommendations and are recorded in Assumptions. Q1 (repo layout), Q4 (minimum toolchain version) and Q5 (Codex packaging) are technical and deferred to planning.
 - FR-025 leaves which optional tool groups ship in v1 to planning. The plan places them in M5, so v1 only needs the on/off mechanism.
+- After /speckit-analyze (2026-10-19): FR-015 reworded (v1 treats settings as informational;
+  the opt-in is reserved for later) and SC-012 made measurable (at most 1 wrong tool call per
+  scripted task). All items still pass.
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`

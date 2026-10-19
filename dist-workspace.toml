@@ -1,0 +1,19 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist' (cargo-dist). See docs/adr/002-own-npm-platform-packages.md and research R15.
+[dist]
+cargo-dist-version = "0.32.0"
+ci = "github"
+installers = ["shell", "powershell"]
+targets = [
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+checksum = "sha256"
+install-path = "CARGO_HOME"
+# npm packages are built by our own job (cargo xtask npm-pack), not dist's postinstall installer.
+pr-run-mode = "plan"

@@ -1,0 +1,12 @@
+/target
+/dist
+*.profraw
+*.rs.bk
+*.log
+.env*
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+node_modules/

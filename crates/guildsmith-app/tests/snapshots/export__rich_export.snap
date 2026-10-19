@@ -1,0 +1,104 @@
+---
+source: crates/guildsmith-app/tests/export.rs
+expression: out.toml
+---
+#:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json
+# Exported by guildsmith 0.1.0 from "Guildsmith Lab" (1000) on 2026-10-19.
+
+[guild]
+id = "1000"
+name = "Guildsmith Lab"  # informational
+
+# Roles are listed highest first.
+[[roles]]
+id = "10"
+name = "Moderator"
+color = "#3BA55D"
+# gradient colors (read-only): secondary #FF0000, tertiary none
+hoist = true
+mentionable = false
+permissions = ["kick_members", "manage_messages", "moderate_members"]
+
+[[roles]]
+id = "11"
+name = "Member"
+hoist = false
+mentionable = false
+permissions = []
+
+[[roles]]
+name = "@everyone"
+permissions = ["connect", "read_message_history", "send_messages", "speak", "view_channel"]
+
+# managed (read-only): "Guildsmith" bot role, id 9
+
+[[categories]]
+id = "100"
+name = "Community"
+overwrites = []
+
+  [[categories.channels]]
+  id = "101"
+  name = "general"
+  kind = "text"
+  topic = "Talk about anything"
+  nsfw = false
+  slowmode = 0
+  sync_permissions = true
+
+  [[categories.channels]]
+  id = "102"
+  name = "mod-log"
+  kind = "text"
+  nsfw = false
+  slowmode = 0
+  overwrites = [
+    { target = "@everyone", deny = ["view_channel"] },
+    { target = "@Moderator", allow = ["view_channel"] },
+  ]
+
+  [[categories.channels]]
+  id = "104"
+  name = "announcements"
+  kind = "announcement"
+  topic = "News"
+  nsfw = false
+  sync_permissions = true
+
+[[channels]]
+id = "103"
+name = "Lobby"
+kind = "voice"
+nsfw = false
+bitrate = 64000
+user_limit = 10
+rtc_region = "auto"
+overwrites = []
+
+[[channels]]
+id = "105"
+name = "Town Hall"
+kind = "stage"
+nsfw = false
+bitrate = 64000
+user_limit = 0
+rtc_region = "us-west"
+overwrites = []
+
+[[channels]]
+id = "106"
+name = "help"
+kind = "forum"
+topic = "Ask here"
+nsfw = false
+slowmode = 0
+tags = [{ id = "201", name = "question", emoji = "❓", moderated = false }, { id = "202", name = "solved", moderated = true }]
+default_reaction = "👍"
+overwrites = []
+
+# unmanaged: "directory" (channel type 14), id 108
+
+[prune]
+roles = false
+categories = false
+channels = false

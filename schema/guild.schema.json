@@ -1,0 +1,474 @@
+{
+  "$defs": {
+    "CategorySpec": {
+      "additionalProperties": false,
+      "description": "`[[categories]]`.",
+      "properties": {
+        "channels": {
+          "items": {
+            "$ref": "#/$defs/ChannelSpec"
+          },
+          "type": "array"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "description": "1–100 characters.",
+          "type": "string"
+        },
+        "overwrites": {
+          "description": "Permission overwrites. Omitted means not managed; `[]` means none.",
+          "items": {
+            "$ref": "#/$defs/OverwriteSpec"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "position": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "ChannelKind": {
+      "description": "Channel kinds a spec can describe.",
+      "enum": [
+        "text",
+        "announcement",
+        "voice",
+        "stage",
+        "forum",
+        "media"
+      ],
+      "type": "string"
+    },
+    "ChannelSpec": {
+      "additionalProperties": false,
+      "description": "A channel, either inside `[[categories.channels]]` or in top-level `[[channels]]`.",
+      "properties": {
+        "bitrate": {
+          "description": "Voice/stage only, ≥ 8000.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "default_reaction": {
+          "description": "Forum/media only: a unicode emoji or a custom emoji id.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/ChannelKind"
+        },
+        "name": {
+          "description": "1–100 characters. Text-like kinds are lowercased by Discord.",
+          "type": "string"
+        },
+        "nsfw": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "overwrites": {
+          "description": "Permission overwrites. Omitted means not managed; `[]` means none.",
+          "items": {
+            "$ref": "#/$defs/OverwriteSpec"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "replace": {
+          "description": "Allows a kind change by delete + create (research R10).",
+          "type": "boolean"
+        },
+        "rtc_region": {
+          "description": "Voice/stage only. `\"auto\"` means Discord picks the region.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "slowmode": {
+          "description": "Seconds, 0–21600. Not allowed on announcement.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "sync_permissions": {
+          "description": "If `true`, the channel's overwrites are the category's, and `overwrites` must be empty.",
+          "type": "boolean"
+        },
+        "tags": {
+          "description": "Forum/media only. At most 20; names ≤ 20 characters.",
+          "items": {
+            "$ref": "#/$defs/ForumTag"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "topic": {
+          "description": "0–1024 characters, or 0–4096 for forum/media. Not allowed on voice.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "user_limit": {
+          "description": "Voice: 0–99. Stage: ≤ 10000.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "Color": {
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "type": "string"
+    },
+    "ForumTag": {
+      "additionalProperties": false,
+      "description": "A forum or media tag.",
+      "properties": {
+        "emoji": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "moderated": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "≤ 20 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "GuildInfo": {
+      "additionalProperties": false,
+      "description": "`[guild]`: informational unless `manage_settings = true` (rejected in v1).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "manage_settings": {
+          "description": "Reserved. v1 rejects `true` (research R21).",
+          "type": "boolean"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Id": {
+      "description": "A Discord id (snowflake) as a decimal string.",
+      "pattern": "^[0-9]{1,20}$",
+      "type": "string"
+    },
+    "OverwriteSpec": {
+      "additionalProperties": false,
+      "description": "One permission overwrite on a category or channel.",
+      "properties": {
+        "allow": {
+          "$ref": "#/$defs/PermissionSet"
+        },
+        "deny": {
+          "$ref": "#/$defs/PermissionSet"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "type": "object"
+    },
+    "PermissionSet": {
+      "description": "Discord permission names in snake_case.",
+      "items": {
+        "anyOf": [
+          {
+            "enum": [
+              "create_instant_invite",
+              "kick_members",
+              "ban_members",
+              "administrator",
+              "manage_channels",
+              "manage_guild",
+              "add_reactions",
+              "view_audit_log",
+              "priority_speaker",
+              "stream",
+              "view_channel",
+              "send_messages",
+              "send_tts_messages",
+              "manage_messages",
+              "embed_links",
+              "attach_files",
+              "read_message_history",
+              "mention_everyone",
+              "use_external_emojis",
+              "view_guild_insights",
+              "connect",
+              "speak",
+              "mute_members",
+              "deafen_members",
+              "move_members",
+              "use_vad",
+              "change_nickname",
+              "manage_nicknames",
+              "manage_roles",
+              "manage_webhooks",
+              "manage_guild_expressions",
+              "use_application_commands",
+              "request_to_speak",
+              "manage_events",
+              "manage_threads",
+              "create_public_threads",
+              "create_private_threads",
+              "use_external_stickers",
+              "send_messages_in_threads",
+              "use_embedded_activities",
+              "moderate_members",
+              "view_creator_monetization_analytics",
+              "use_soundboard",
+              "create_guild_expressions",
+              "create_events",
+              "use_external_sounds",
+              "send_voice_messages",
+              "set_voice_channel_status",
+              "send_polls",
+              "use_external_apps",
+              "pin_messages",
+              "bypass_slowmode"
+            ]
+          },
+          {
+            "pattern": "^unknown_[0-9]{1,2}$",
+            "type": "string"
+          }
+        ]
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "PruneSpec": {
+      "additionalProperties": false,
+      "description": "`[prune]`: which unmanaged kinds may be deleted.",
+      "properties": {
+        "categories": {
+          "default": false,
+          "type": "boolean"
+        },
+        "channels": {
+          "default": false,
+          "type": "boolean"
+        },
+        "roles": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "RoleSpec": {
+      "additionalProperties": false,
+      "description": "`[[roles]]`.",
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Color"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Primary color as `#RRGGBB` (research R2: gradients are read-only)."
+        },
+        "hoist": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Written by export. Without it, the role is matched by name."
+        },
+        "managed": {
+          "description": "Must match the live role. If `true`, only `permissions` may differ (research R12).",
+          "type": "boolean"
+        },
+        "mentionable": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "name": {
+          "description": "1–100 characters. `@everyone` is reserved for the default role.",
+          "type": "string"
+        },
+        "permissions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PermissionSet"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position": {
+          "description": "Optional explicit position. Without it, file order is used (first = highest).",
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Target": {
+      "description": "`@everyone`, `@RoleName`, `role:<id>` or `member:<id>`.",
+      "pattern": "^(@.+|role:[0-9]{1,20}|member:[0-9]{1,20})$",
+      "type": "string"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The whole spec file.",
+  "properties": {
+    "categories": {
+      "description": "Categories with their channels.",
+      "items": {
+        "$ref": "#/$defs/CategorySpec"
+      },
+      "type": "array"
+    },
+    "channels": {
+      "description": "Top-level channels with no category.",
+      "items": {
+        "$ref": "#/$defs/ChannelSpec"
+      },
+      "type": "array"
+    },
+    "guild": {
+      "$ref": "#/$defs/GuildInfo",
+      "default": {},
+      "description": "Server information. Informational only in v1 (research R21)."
+    },
+    "prune": {
+      "$ref": "#/$defs/PruneSpec",
+      "default": {
+        "categories": false,
+        "channels": false,
+        "roles": false
+      },
+      "description": "Which unmanaged kinds may be deleted. Every flag defaults to `false`."
+    },
+    "roles": {
+      "description": "Roles, listed highest first. `@everyone` may appear (permissions only).",
+      "items": {
+        "$ref": "#/$defs/RoleSpec"
+      },
+      "type": "array"
+    }
+  },
+  "title": "guildsmith spec file (guild.toml)",
+  "type": "object"
+}

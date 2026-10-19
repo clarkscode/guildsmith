@@ -1,0 +1,27 @@
+[package]
+name = "guildsmith-discord"
+description = "twilight-http adapter implementing guildsmith's DiscordPort. twilight types stay in this crate."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+guildsmith-core.workspace = true
+guildsmith-app.workspace = true
+twilight-http.workspace = true
+twilight-model.workspace = true
+rustls.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+wiremock.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

@@ -153,7 +153,7 @@ A user installs guildsmith in Claude Code as a plugin, adds it to Codex, or inst
 - **FR-012**: Each plan MUST have an identifier derived from its content. Apply MUST only run a plan whose identifier matches one that was produced, and MUST refuse if the server has changed since the plan was made.
 - **FR-013**: Apply MUST stop at the first error, report exactly which changes succeeded, and MUST NOT blindly retry a change. Planning again MUST cover only the remaining changes.
 - **FR-014**: Apply MUST report progress during long runs.
-- **FR-015**: Server-wide settings in the file MUST be informational only unless the user explicitly opts in to managing them.
+- **FR-015**: v1 MUST treat server-wide settings in the file as informational only: they never produce changes. Opting in to managing them is reserved for a later version, and v1 rejects the opt-in with a clear message.
 
 **Safety and policy** (enforced the same way for the command line and for AI agent tools)
 
@@ -219,7 +219,7 @@ A user installs guildsmith in Claude Code as a plugin, adds it to Codex, or inst
 - **SC-009**: When the bot lacks permissions or role order, 100% of problems are reported in a single response before any change is made.
 - **SC-010**: A new user can go from installing to seeing a plan for their own server in under 10 minutes using any supported install channel.
 - **SC-011**: A fresh install works through every distribution channel on Linux, macOS and Windows.
-- **SC-012**: An agent completes the scripted day-to-day task set (Story 4) using only the default tools, with no failed tool choices caused by unclear tool descriptions.
+- **SC-012**: An agent completes the scripted day-to-day task set (Story 4) using only the default tools, where each task is completed with at most 1 wrong tool call, judged from the session transcript.
 
 ## Assumptions
 

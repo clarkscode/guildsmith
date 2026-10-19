@@ -1,0 +1,34 @@
+[package]
+name = "guildsmith-app"
+description = "Use cases, ports and safety policy for guildsmith."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+# In-memory DiscordPort for tests and demos.
+fake = []
+keyring = ["dep:keyring"]
+
+[dependencies]
+guildsmith-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+keyring = { workspace = true, optional = true }
+
+[dev-dependencies]
+guildsmith-app = { path = ".", features = ["fake"] }
+proptest.workspace = true
+insta.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
