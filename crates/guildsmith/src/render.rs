@@ -4,7 +4,11 @@
 use std::io::Write;
 
 use guildsmith_app::error::ServiceError;
+use guildsmith_app::services::apply::ApplyReport;
+use guildsmith_app::services::doctor::{DoctorReport, Status};
 use guildsmith_app::services::guilds::GuildList;
+use guildsmith_app::services::plan::PlanOutput;
+use guildsmith_core::planner::Risk;
 use guildsmith_core::validate::{Problem, Severity};
 use serde::Serialize;
 
@@ -58,4 +62,76 @@ pub fn problems(out: &mut dyn Write, file: &str, problems: &[Problem]) {
             let _ = writeln!(out, "  hint: {h}");
         }
     }
+}
+
+fn risk_word(r: Risk) -> &'static str {
+    match r {
+        Risk::Safe => "safe",
+        Risk::Destructive => "destructive",
+    }
+}
+
+/// The plan: ops in order with their risk, unmanaged items, warnings, estimate and hash.
+pub fn plan(out: &mut dyn Write, p: &PlanOutput) {
+    if p.has_changes() {
+        let _ = writeln!(out, "Plan: {} change(s), {}", p.ops.len(), risk_word(p.risk));
+        let width = p.ops.len().to_string().len();
+        for (i, op) in p.ops.iter().enumerate() {
+            let _ = writeln!(out, "  {:>width$}. [{}] {}", i + 1, risk_word(op.risk), op.summary);
+        }
+    } else {
+        let _ = writeln!(out, "No changes.");
+    }
+    if !p.unmanaged.is_empty() {
+        let _ = writeln!(out, "Unmanaged (left alone):");
+        for u in &p.unmanaged {
+            let _ = writeln!(out, "  - {u}");
+        }
+    }
+    for w in &p.warnings {
+        let _ = writeln!(out, "warning: {w}");
+    }
+    if p.has_changes() {
+        let _ = writeln!(out, "Estimated requests: {}", p.estimated_requests);
+    }
+    let _ = writeln!(out, "Plan hash: {}", p.plan_hash);
+}
+
+/// What an apply did: everything applied, or where it stopped.
+pub fn apply_report(out: &mut dyn Write, r: &ApplyReport) {
+    match &r.failed {
+        None => {
+            let _ = writeln!(out, "Applied {} change(s).", r.applied.len());
+        }
+        Some(f) => {
+            let _ = writeln!(out, "error: apply stopped at `{}`: {}", f.summary, f.error);
+            let _ = writeln!(out, "Applied before the error ({}):", r.applied.len());
+            for a in &r.applied {
+                let _ = writeln!(out, "  - {a}");
+            }
+            let _ = writeln!(out, "Not attempted ({}):", r.skipped.len());
+            for s in &r.skipped {
+                let _ = writeln!(out, "  - {s}");
+            }
+            let _ = writeln!(out, "hint: run plan again; it lists only what's left");
+        }
+    }
+}
+
+/// Each doctor check with its status, then every problem with its fix.
+pub fn doctor(out: &mut dyn Write, r: &DoctorReport) {
+    for c in &r.checks {
+        let mark = match c.status {
+            Status::Pass => "ok  ",
+            Status::Warn => "warn",
+            Status::Fail => "FAIL",
+            Status::Skipped => "skip",
+        };
+        let _ = writeln!(out, "[{mark}] {}: {}", c.name, c.detail);
+        for p in &c.problems {
+            let _ = writeln!(out, "       - {}", p.message);
+            let _ = writeln!(out, "         fix: {}", p.fix);
+        }
+    }
+    let _ = writeln!(out, "{}", if r.ok { "All checks passed." } else { "Some checks failed." });
 }

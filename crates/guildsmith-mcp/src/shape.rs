@@ -38,6 +38,16 @@ pub fn ok<T: Serialize>(summary: &str, value: &T) -> CallToolResult {
     result
 }
 
+/// A result whose text is given instead of the JSON copy, for user-written content that must
+/// only appear wrapped as untrusted data (research R19). `structuredContent` is still set.
+pub fn ok_with_text<T: Serialize>(summary: &str, text: &str, value: &T) -> CallToolResult {
+    let value = serde_json::to_value(value).unwrap_or(Value::Null);
+    let mut result =
+        CallToolResult::success(vec![ContentBlock::text(cap_text(summary)), ContentBlock::text(cap_text(text))]);
+    result.structured_content = Some(value);
+    result
+}
+
 /// A policy refusal: `isError: true` with `structuredContent.refusal = { kind, reason, hint }`.
 #[must_use]
 pub fn refusal(r: &Refusal) -> CallToolResult {

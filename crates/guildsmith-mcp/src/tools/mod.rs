@@ -2,11 +2,16 @@
 
 pub(crate) mod channels;
 pub(crate) mod guild;
+pub(crate) mod members;
+pub(crate) mod messages;
+pub(crate) mod moderation;
+pub(crate) mod perms;
 pub(crate) mod roles;
 pub(crate) mod spec;
 
+use guildsmith_app::confirm::Outcome;
 use guildsmith_app::error::ServiceError;
-use rmcp::model::CallToolResult;
+use rmcp::model::{CallToolResult, MetaObject};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -45,5 +50,23 @@ pub(crate) fn respond<T: Serialize>(
             };
             shape::error(&e.to_string(), &json!({ "kind": kind, "candidates": candidates }))
         }
+    }
+}
+
+/// `_meta` for hard deletes: Claude Code asks the user even in bypass mode (research R5).
+pub(crate) fn requires_user_interaction() -> MetaObject {
+    let mut meta = MetaObject::new();
+    meta.0.insert("anthropic/requiresUserInteraction".to_owned(), serde_json::Value::Bool(true));
+    meta
+}
+
+/// The summary for a destructive tool: a preview, or `done`'s text.
+pub(crate) fn outcome_summary<T>(o: &Outcome<T>, done: impl FnOnce(&T) -> String) -> String {
+    match o {
+        Outcome::Preview(p) => format!(
+            "Preview only; nothing changed. This would: {}. Call again with confirm: true to do it.",
+            p.would.join("; ")
+        ),
+        Outcome::Done(v) => done(v),
     }
 }

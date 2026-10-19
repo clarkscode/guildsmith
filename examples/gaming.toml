@@ -1,0 +1,118 @@
+#:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json
+# A gaming community: LFG, clips, per-game channels, squad voice rooms and a streamers' stage.
+# Plan it against a server you created: guildsmith plan -g <server> examples/gaming.toml
+
+[guild]
+name = "Gaming"                   # informational
+
+[[roles]]
+name = "Owner"
+color = "#9B59B6"
+hoist = true
+permissions = ["administrator"]
+
+[[roles]]
+name = "Mod"
+color = "#2ECC71"
+hoist = true
+permissions = ["kick_members", "ban_members", "manage_messages", "moderate_members", "move_members", "mute_members"]
+
+[[roles]]
+name = "Streamer"
+color = "#E91E63"
+hoist = true
+mentionable = true
+permissions = ["stream", "priority_speaker"]
+
+[[roles]]
+name = "Gamer"
+color = "#3498DB"
+permissions = ["attach_files", "embed_links", "use_external_emojis", "stream"]
+
+[[roles]]
+name = "@everyone"
+permissions = ["view_channel", "send_messages", "read_message_history", "add_reactions", "connect", "speak", "use_vad"]
+
+[[categories]]
+name = "Lobby"
+
+  [[categories.channels]]
+  name = "rules"
+  kind = "text"
+  topic = "Be kind. No cheating talk. Spoilers in spoiler tags."
+  overwrites = [
+    { target = "@everyone", deny = ["send_messages"] },
+    { target = "@Mod", allow = ["send_messages"] },
+  ]
+
+  [[categories.channels]]
+  name = "chat"
+  kind = "text"
+  topic = "Anything goes (within the rules)."
+  slowmode = 3
+
+  [[categories.channels]]
+  name = "lfg"
+  kind = "forum"
+  topic = "Looking for group: one post per session. Say the game, time and slots."
+  default_reaction = "🎮"
+  tags = [
+    { name = "ranked" },
+    { name = "casual" },
+    { name = "full", moderated = true },
+  ]
+
+  [[categories.channels]]
+  name = "clips"
+  kind = "text"
+  topic = "Your best plays. Video links or uploads only."
+  slowmode = 30
+
+[[categories]]
+name = "Games"
+
+  [[categories.channels]]
+  name = "minecraft"
+  kind = "text"
+  topic = "Server IP is pinned."
+
+  [[categories.channels]]
+  name = "valorant"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "indie-games"
+  kind = "text"
+  topic = "Small games, big fun."
+
+[[categories]]
+name = "Voice"
+
+  [[categories.channels]]
+  name = "Squad 1"
+  kind = "voice"
+  user_limit = 5
+
+  [[categories.channels]]
+  name = "Squad 2"
+  kind = "voice"
+  user_limit = 5
+
+  [[categories.channels]]
+  name = "AFK"
+  kind = "voice"
+  bitrate = 8000
+  overwrites = [{ target = "@everyone", deny = ["speak"] }]
+
+  [[categories.channels]]
+  name = "Stream Stage"
+  kind = "stage"
+  overwrites = [
+    { target = "@everyone", deny = ["request_to_speak"] },
+    { target = "@Streamer", allow = ["request_to_speak", "stream"] },
+  ]
+
+[[channels]]                      # top level, no category
+name = "bot-commands"
+kind = "text"
+topic = "Use bot commands here."

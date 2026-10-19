@@ -15,6 +15,11 @@ categories = ["command-line-utilities"]
 name = "guildsmith"
 path = "src/main.rs"
 
+# Opt-in live tests against a real test server (GUILDSMITH_LIVE_TEST=1).
+[[test]]
+name = "live"
+path = "../../tests/live/main.rs"
+
 [features]
 default = ["keyring"]
 keyring = ["guildsmith-app/keyring"]
@@ -31,9 +36,13 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 serde_json.workspace = true
 serde.workspace = true
+rpassword.workspace = true
 
 [dev-dependencies]
 guildsmith-app = { workspace = true, features = ["fake"] }
+insta.workspace = true
+rmcp = { workspace = true, features = ["client"] }
+wiremock.workspace = true
 
 [lints]
 workspace = true

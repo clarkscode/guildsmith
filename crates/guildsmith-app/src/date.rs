@@ -27,9 +27,30 @@ pub fn today(clock: &dyn Clock) -> String {
     civil(i64::try_from(secs / 86_400).unwrap_or(0))
 }
 
+/// RFC 3339 (UTC, whole seconds) for a count of seconds since the Unix epoch.
+#[must_use]
+pub fn rfc3339(secs: u64) -> String {
+    let days = i64::try_from(secs / 86_400).unwrap_or(0);
+    let rem = secs % 86_400;
+    format!("{}T{:02}:{:02}:{:02}Z", civil(days), rem / 3600, rem % 3600 / 60, rem % 60)
+}
+
+/// RFC 3339 for `clock`'s now plus `secs`.
+#[must_use]
+pub fn rfc3339_after(clock: &dyn Clock, secs: u64) -> String {
+    let now = clock.now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    rfc3339(now.saturating_add(secs))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::civil;
+    use super::{civil, rfc3339};
+
+    #[test]
+    fn rfc3339_times() {
+        assert_eq!(rfc3339(0), "1970-01-01T00:00:00Z");
+        assert_eq!(rfc3339(20_745 * 86_400 + 3_723), "2026-10-19T01:02:03Z");
+    }
 
     #[test]
     fn known_dates() {

@@ -44,6 +44,8 @@ struct State {
     fail_write_at: Option<usize>,
     /// Fail the next call of this method name.
     fail_method: Option<&'static str>,
+    /// Every call fails with `Unauthorized`.
+    invalid_token: bool,
     next_id: u64,
 }
 
@@ -169,6 +171,7 @@ impl FakeDiscord {
                 reads: 0,
                 fail_write_at: None,
                 fail_method: None,
+                invalid_token: false,
                 next_id: 5_000_000,
             }),
         }
@@ -178,9 +181,15 @@ impl FakeDiscord {
         self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// Makes the token look like a user account instead of a bot (FR-022 tests).
+    /// Makes the token look like a user account instead of a bot (FR-022 tests): every call
+    /// then fails with `NotBotToken`, as the adapter does after its `users/@me` check.
     pub fn set_user_account(&self) {
         self.lock().user.bot = false;
+    }
+
+    /// Makes the token invalid: every call fails with `Unauthorized`.
+    pub fn set_invalid_token(&self) {
+        self.lock().invalid_token = true;
     }
 
     /// Fails the n-th write from now on (1-based, counted over every write).
@@ -239,6 +248,13 @@ impl FakeDiscord {
     }
 
     fn check_fail(st: &mut State, method: &'static str) -> PortResult<()> {
+        if st.invalid_token {
+            return Err(PortError::Unauthorized);
+        }
+        // Like the adapter: a user-account token is refused before any other call.
+        if !st.user.bot {
+            return Err(PortError::NotBotToken);
+        }
         if st.fail_method == Some(method) {
             st.fail_method = None;
             return Err(server_error());
@@ -408,6 +424,10 @@ impl DiscordPort for FakeDiscord {
             g.snapshot.roles.retain(|r| r.id != role);
             for m in &mut g.members {
                 m.role_ids.retain(|r| *r != role);
+            }
+            // Discord drops the deleted role's overwrites too.
+            for c in &mut g.snapshot.channels {
+                c.overwrites.retain(|o| o.id != role);
             }
             Ok(())
         })

@@ -1,8 +1,9 @@
-//! `guilds_list` and `guild_overview`.
+//! `guilds_list`, `guild_overview` and `refresh`.
 
 use guildsmith_app::ports::DiscordPort;
 use guildsmith_app::services::guilds::{self, GuildList};
 use guildsmith_app::services::inspect::{self, Overview};
+use guildsmith_app::services::live::{self, Refreshed};
 use rmcp::handler::server::common::schema_for_output;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResult;
@@ -37,5 +38,15 @@ impl<P: DiscordPort + 'static> GuildsmithServer<P> {
                 o.guild.name, o.counts.roles, o.counts.categories, o.counts.channels
             )
         })
+    }
+
+    #[tool(
+        description = "Drop cached server data so the next read fetches it fresh; omit guild to clear all.",
+        annotations(read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = true),
+        output_schema = schema_for_output::<Refreshed>()
+    )]
+    async fn refresh(&self, Parameters(p): Parameters<GuildParam>) -> CallToolResult {
+        let res = live::refresh(&self.app, p.guild.as_deref()).await;
+        respond(res, |r| format!("cleared {} server(s)", r.cleared.len()))
     }
 }

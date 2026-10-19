@@ -24,11 +24,14 @@ pub fn router<P: DiscordPort + 'static>(enabled: &BTreeSet<Toolset>) -> ToolRout
 
 fn core<P: DiscordPort + 'static>() -> ToolRouter<GuildsmithServer<P>> {
     GuildsmithServer::<P>::guild_tools()
+        + GuildsmithServer::<P>::spec_tools()
         + GuildsmithServer::<P>::role_tools()
         + GuildsmithServer::<P>::channel_tools()
-        + GuildsmithServer::<P>::spec_tools()
+        + GuildsmithServer::<P>::perm_tools()
+        + GuildsmithServer::<P>::member_tools()
+        + GuildsmithServer::<P>::message_tools()
 }
 
 fn moderation<P: DiscordPort + 'static>() -> ToolRouter<GuildsmithServer<P>> {
-    ToolRouter::new()
+    GuildsmithServer::<P>::moderation_tools()
 }

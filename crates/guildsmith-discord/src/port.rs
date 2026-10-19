@@ -8,9 +8,12 @@ use guildsmith_app::secret::Secret;
 use guildsmith_core::Id;
 use guildsmith_core::snapshot::Snapshot;
 
+use twilight_http::request::AuditLogReason;
+use twilight_model::util::Timestamp;
+
 use crate::client::LazyClient;
 use crate::error::map_err;
-use crate::{ids, retry, snapshot};
+use crate::{ids, retry, snapshot, write};
 
 /// The production `DiscordPort`. Builds its HTTP client on first use.
 pub struct TwilightDiscord {
@@ -55,12 +58,6 @@ fn message(m: &twilight_model::channel::Message) -> Message {
     }
 }
 
-fn not_yet<T>(what: &str) -> PortResult<T> {
-    Err(PortError::Unsupported(format!("{what} is not implemented in this build yet")))
-}
-
-// Write methods are stubs until US2/US4 and don't await yet; remove this allow then.
-#[allow(clippy::unused_async_trait_impl)]
 impl DiscordPort for TwilightDiscord {
     async fn current_user(&self) -> PortResult<CurrentUser> {
         Ok(self.client.get().await?.user.clone())
@@ -98,48 +95,63 @@ impl DiscordPort for TwilightDiscord {
         Ok(found.iter().map(member).collect())
     }
 
-    async fn create_role(&self, _guild: Id, _fields: &RoleFields, _reason: &str) -> PortResult<Id> {
-        not_yet("create_role")
+    async fn create_role(&self, guild: Id, fields: &RoleFields, reason: &str) -> PortResult<Id> {
+        write::create_role(&self.client.get().await?.http, guild, fields, reason).await
     }
 
-    async fn update_role(&self, _guild: Id, _role: Id, _fields: &RoleFields, _reason: &str) -> PortResult<()> {
-        not_yet("update_role")
+    async fn update_role(&self, guild: Id, role: Id, fields: &RoleFields, reason: &str) -> PortResult<()> {
+        write::update_role(&self.client.get().await?.http, guild, role, fields, reason).await
     }
 
-    async fn delete_role(&self, _guild: Id, _role: Id, _reason: &str) -> PortResult<()> {
-        not_yet("delete_role")
+    async fn delete_role(&self, guild: Id, role: Id, reason: &str) -> PortResult<()> {
+        write::delete_role(&self.client.get().await?.http, guild, role, reason).await
     }
 
-    async fn reorder_roles(&self, _guild: Id, _order: &[RolePosition], _reason: &str) -> PortResult<()> {
-        not_yet("reorder_roles")
+    async fn reorder_roles(&self, guild: Id, order: &[RolePosition], reason: &str) -> PortResult<()> {
+        write::reorder_roles(&self.client.get().await?.http, guild, order, reason).await
     }
 
-    async fn create_channel(&self, _guild: Id, _fields: &ChannelFields, _reason: &str) -> PortResult<Id> {
-        not_yet("create_channel")
+    async fn create_channel(&self, guild: Id, fields: &ChannelFields, reason: &str) -> PortResult<Id> {
+        write::create_channel(&self.client.get().await?.http, guild, fields, reason).await
     }
 
-    async fn update_channel(&self, _guild: Id, _channel: Id, _fields: &ChannelFields, _reason: &str) -> PortResult<()> {
-        not_yet("update_channel")
+    async fn update_channel(&self, _guild: Id, channel: Id, fields: &ChannelFields, reason: &str) -> PortResult<()> {
+        write::update_channel(&self.client.get().await?.http, channel, fields, reason).await
     }
 
-    async fn delete_channel(&self, _guild: Id, _channel: Id, _reason: &str) -> PortResult<()> {
-        not_yet("delete_channel")
+    async fn delete_channel(&self, _guild: Id, channel: Id, reason: &str) -> PortResult<()> {
+        write::delete_channel(&self.client.get().await?.http, channel, reason).await
     }
 
-    async fn reorder_channels(&self, _guild: Id, _positions: &[ChannelPosition], _reason: &str) -> PortResult<()> {
-        not_yet("reorder_channels")
+    async fn reorder_channels(&self, guild: Id, positions: &[ChannelPosition], reason: &str) -> PortResult<()> {
+        write::reorder_channels(&self.client.get().await?.http, guild, positions, reason).await
     }
 
-    async fn add_member_role(&self, _guild: Id, _user: Id, _role: Id, _reason: &str) -> PortResult<()> {
-        not_yet("add_member_role")
+    async fn add_member_role(&self, guild: Id, user: Id, role: Id, reason: &str) -> PortResult<()> {
+        let http = &self.client.get().await?.http;
+        let (g, u, r) = (ids::guild(guild)?, ids::user(user)?, ids::role(role)?);
+        http.add_guild_member_role(g, u, r).reason(reason).await.map_err(map_err)?;
+        Ok(())
     }
 
-    async fn remove_member_role(&self, _guild: Id, _user: Id, _role: Id, _reason: &str) -> PortResult<()> {
-        not_yet("remove_member_role")
+    async fn remove_member_role(&self, guild: Id, user: Id, role: Id, reason: &str) -> PortResult<()> {
+        let http = &self.client.get().await?.http;
+        let (g, u, r) = (ids::guild(guild)?, ids::user(user)?, ids::role(role)?);
+        http.remove_guild_member_role(g, u, r).reason(reason).await.map_err(map_err)?;
+        Ok(())
     }
 
-    async fn send_message(&self, _channel: Id, _content: &str) -> PortResult<Message> {
-        not_yet("send_message")
+    async fn send_message(&self, channel: Id, content: &str) -> PortResult<Message> {
+        let http = &self.client.get().await?.http;
+        let m = http
+            .create_message(ids::channel(channel)?)
+            .content(content)
+            .await
+            .map_err(map_err)?
+            .model()
+            .await
+            .map_err(map_err)?;
+        Ok(message(&m))
     }
 
     async fn read_messages(&self, channel: Id, limit: u8, before: Option<Id>) -> PortResult<Vec<Message>> {
@@ -158,19 +170,44 @@ impl DiscordPort for TwilightDiscord {
         Ok(msgs.iter().map(message).collect())
     }
 
-    async fn ban(&self, _guild: Id, _user: Id, _delete_message_seconds: u32, _reason: &str) -> PortResult<()> {
-        not_yet("ban")
+    async fn ban(&self, guild: Id, user: Id, delete_message_seconds: u32, reason: &str) -> PortResult<()> {
+        let http = &self.client.get().await?.http;
+        let mut req = http.create_ban(ids::guild(guild)?, ids::user(user)?);
+        if delete_message_seconds > 0 {
+            req = req.delete_message_seconds(delete_message_seconds);
+        }
+        req.reason(reason).await.map_err(map_err)?;
+        Ok(())
     }
 
-    async fn unban(&self, _guild: Id, _user: Id, _reason: &str) -> PortResult<()> {
-        not_yet("unban")
+    async fn unban(&self, guild: Id, user: Id, reason: &str) -> PortResult<()> {
+        let http = &self.client.get().await?.http;
+        http.delete_ban(ids::guild(guild)?, ids::user(user)?).reason(reason).await.map_err(map_err)?;
+        Ok(())
     }
 
-    async fn kick(&self, _guild: Id, _user: Id, _reason: &str) -> PortResult<()> {
-        not_yet("kick")
+    async fn kick(&self, guild: Id, user: Id, reason: &str) -> PortResult<()> {
+        let http = &self.client.get().await?.http;
+        http.remove_guild_member(ids::guild(guild)?, ids::user(user)?).reason(reason).await.map_err(map_err)?;
+        Ok(())
     }
 
-    async fn timeout(&self, _guild: Id, _user: Id, _until: Option<&str>, _reason: &str) -> PortResult<()> {
-        not_yet("timeout")
+    async fn timeout(&self, guild: Id, user: Id, until: Option<&str>, reason: &str) -> PortResult<()> {
+        let http = &self.client.get().await?.http;
+        let until = until
+            .map(|t| {
+                Timestamp::parse(t).map_err(|e| PortError::Discord {
+                    status: 400,
+                    code: None,
+                    message: format!("bad timeout timestamp `{t}`: {e}"),
+                })
+            })
+            .transpose()?;
+        http.update_guild_member(ids::guild(guild)?, ids::user(user)?)
+            .communication_disabled_until(until)
+            .reason(reason)
+            .await
+            .map_err(map_err)?;
+        Ok(())
     }
 }

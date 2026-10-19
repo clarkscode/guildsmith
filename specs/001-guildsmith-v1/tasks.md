@@ -220,14 +220,14 @@ on the re-plan; a server changed between plan and apply is refused.
 
 ### Tests for User Story 2
 
-- [ ] T050 [P] [US2] Planner property tests in `crates/guildsmith-core/tests/planner_props.rs`, one per data-model §3 invariant, using a pure in-memory apply:
+- [X] T050 [P] [US2] Planner property tests in `crates/guildsmith-core/tests/planner_props.rs`, one per data-model §3 invariant, using a pure in-memory apply:
   1. "Every `CreateRole` comes before any op whose overwrites refer to that role".
   2. "A category's create comes before its children's creates".
   3. "At most one `ReorderRoles` and one `ReorderChannels`, both after every create and update".
   4. "Every delete comes after every non-delete op".
   5. `diff(spec, apply_fake(spec, snapshot)).ops.is_empty()`.
   Also: the same spec and snapshot always give the same ops and hash.
-- [ ] T051 [P] [US2] Matching tests in `crates/guildsmith-core/tests/matching.rs`:
+- [X] T051 [P] [US2] Matching tests in `crates/guildsmith-core/tests/matching.rs`:
   - match by `id`, then by unique name in scope (roles and categories at server level; channels within their parent);
   - `general` in two categories doesn't conflict;
   - ambiguity is an error that names the candidates;
@@ -235,44 +235,44 @@ on the re-plan; a server changed between plan and apply is refused.
   - managed roles are a validation error unless marked `managed = true`, and then only `permissions` may differ;
   - visibility guard (R6): a spec `id` missing from the snapshot is a hard error when the bot isn't an administrator; when it is, the item is recreated with a stale-id warning;
   - unmanaged items are deleted only with that kind's `prune` flag.
-- [ ] T052 [P] [US2] Op tests in `crates/guildsmith-core/tests/ops.rs`:
+- [X] T052 [P] [US2] Op tests in `crates/guildsmith-core/tests/ops.rs`:
   - overwrite changes go into the channel's single `UpdateChannel` together with field changes (R7);
   - `sync_permissions = true` copies the category's overwrites explicitly;
   - text ↔ announcement changes in place only with the `NEWS` feature; any other kind change is a destructive replace that needs `prune` or `replace = true` (R10);
   - parent changes go in each channel's update, and the bulk reorder sets positions only (R8);
   - `estimated_requests` and a warning when more than 50 role creates are planned (R9).
-- [ ] T053 [P] [US2] Hash tests in `crates/guildsmith-core/tests/hash.rs`: the format is `gsp_` plus 32 hex; it's computed as `blake3(canonical_json(ops) ‖ snapshot_fingerprint ‖ spec_digest ‖ engine_version)`; any change to the snapshot fingerprint changes the hash (R4).
-- [ ] T054 [P] [US2] Apply service tests with `FakeDiscord` in `crates/guildsmith-app/tests/apply.rs`:
+- [X] T053 [P] [US2] Hash tests in `crates/guildsmith-core/tests/hash.rs`: the format is `gsp_` plus 32 hex; it's computed as `blake3(canonical_json(ops) ‖ snapshot_fingerprint ‖ spec_digest ‖ engine_version)`; any change to the snapshot fingerprint changes the hash (R4).
+- [X] T054 [P] [US2] Apply service tests with `FakeDiscord` in `crates/guildsmith-app/tests/apply.rs`:
   - every write carries `X-Audit-Log-Reason: guildsmith: <summary>`, "truncated to 512 characters";
   - a mismatched `plan_hash`, or a server edited between plan and apply, is refused and nothing changes;
   - an injected failure on op 3 of 6 stops apply, `ApplyReport` lists 2 applied, the failed op and 3 skipped, and re-planning gives exactly the remaining ops;
   - apply always takes a fresh snapshot and bypasses the cache.
-- [ ] T055 [P] [US2] Plan rendering snapshot tests (human and `--json`) in `crates/guildsmith/tests/cli_plan.rs`:
+- [X] T055 [P] [US2] Plan rendering snapshot tests (human and `--json`) in `crates/guildsmith/tests/cli_plan.rs`:
   - `plan --detailed-exitcode` exits `0` with no changes and `2` with changes;
   - `apply` without `--yes` on a non-TTY exits `3`;
   - `apply --plan-hash` with a mismatch exits `3`;
   - `apply --yes` without `--plan-hash` exits `3` with "--yes needs --plan-hash from a reviewed plan" (constitution I);
   - in the interactive path, a server edited after the plan is shown but before the user confirms is refused (exit `3`), because the shown plan's hash is passed to apply.
-- [ ] T056 [P] [US2] MCP protocol tests in `crates/guildsmith-mcp/tests/spec_tools.rs`: `spec_plan` (RO) returns `{plan_hash, risk, ops, unmanaged, warnings, estimated_requests}`; `spec_apply` (D) refuses a made-up `plan_hash` and returns `{applied, failed?, skipped}`.
-- [ ] T057 [P] [US2] Export round-trip property test in `crates/guildsmith-app/tests/export_roundtrip.rs`: for the recorded fixtures and for generated snapshots, `diff(export(snapshot), snapshot).ops.is_empty()` (SC-001).
+- [X] T056 [P] [US2] MCP protocol tests in `crates/guildsmith-mcp/tests/spec_tools.rs`: `spec_plan` (RO) returns `{plan_hash, risk, ops, unmanaged, warnings, estimated_requests}`; `spec_apply` (D) refuses a made-up `plan_hash` and returns `{applied, failed?, skipped}`.
+- [X] T057 [P] [US2] Export round-trip property test in `crates/guildsmith-app/tests/export_roundtrip.rs`: for the recorded fixtures and for generated snapshots, `diff(export(snapshot), snapshot).ops.is_empty()` (SC-001).
 
 ### Implementation for User Story 2
 
-- [ ] T058 [US2] Implement matching (R12, including the visibility guard from R6) in `crates/guildsmith-core/src/matching.rs`.
-- [ ] T059 [US2] Implement `Op` (`CreateRole`, `UpdateRole`, `ReorderRoles`, `CreateChannel`, `UpdateChannel { id, changes, overwrites }`, `ReorderChannels`, `DeleteChannel`, `DeleteRole`, plus `replace_group`) with `summary` and `risk`, in `crates/guildsmith-core/src/planner/ops.rs`.
-- [ ] T060 [US2] Implement `diff(spec, snapshot) -> Plan` (field-level changes shown as `old → new`, unmanaged items, warnings, `estimated_requests`, `risk`) in `crates/guildsmith-core/src/diff.rs` and `crates/guildsmith-core/src/planner/mod.rs`, with R8's ordering in `crates/guildsmith-core/src/planner/order.rs`.
-- [ ] T061 [P] [US2] Implement the plan hash in `crates/guildsmith-core/src/hash.rs` (R4).
-- [ ] T062 [US2] Implement the twilight write methods in `crates/guildsmith-discord/src/write.rs`:
+- [X] T058 [US2] Implement matching (R12, including the visibility guard from R6) in `crates/guildsmith-core/src/matching.rs`.
+- [X] T059 [US2] Implement `Op` (`CreateRole`, `UpdateRole`, `ReorderRoles`, `CreateChannel`, `UpdateChannel { id, changes, overwrites }`, `ReorderChannels`, `DeleteChannel`, `DeleteRole`, plus `replace_group`) with `summary` and `risk`, in `crates/guildsmith-core/src/planner/ops.rs`.
+- [X] T060 [US2] Implement `diff(spec, snapshot) -> Plan` (field-level changes shown as `old → new`, unmanaged items, warnings, `estimated_requests`, `risk`) in `crates/guildsmith-core/src/diff.rs` and `crates/guildsmith-core/src/planner/mod.rs`, with R8's ordering in `crates/guildsmith-core/src/planner/order.rs`.
+- [X] T061 [P] [US2] Implement the plan hash in `crates/guildsmith-core/src/hash.rs` (R4).
+- [X] T062 [US2] Implement the twilight write methods in `crates/guildsmith-discord/src/write.rs`:
   - create/update/delete role;
   - `update_role_positions`;
   - create/update channel with fields, `parent_id` and the full `permission_overwrites` in one request;
   - `update_guild_channel_positions` with positions only;
   - delete channel;
   - every write sets `.reason(...)`.
-- [ ] T063 [US2] Implement `PlanService` in `crates/guildsmith-app/src/services/plan.rs`, and `ApplyService` in `crates/guildsmith-app/src/services/apply.rs`: fresh snapshot, rebuild, compare hash, run ops in order with progress events, stop at the first error, return `ApplyReport { applied, failed, skipped }` (data-model §4 lifecycle).
-- [ ] T064 [US2] Implement the MCP tools `spec_plan` and `spec_apply` (`guild`, `toml`, `plan_hash`) in `crates/guildsmith-mcp/src/tools/spec.rs`. `spec_apply` sends `notifications/progress` for each op when the client provides a `progressToken` (FR-014).
-- [ ] T065 [US2] Implement the CLI commands `plan -g <guild> <file> [--json] [--detailed-exitcode]` and `apply -g <guild> <file> [--yes] [--plan-hash <hash>] [--json]` (progress to stderr). `--yes` is accepted only together with `--plan-hash`. The interactive path shows the plan and passes **its** hash to `ApplyService`, so any change before the user confirms is refused (constitution I) in `crates/guildsmith/src/cli/{plan,apply}.rs`.
-- [ ] T066 [P] [US2] Add the example files `examples/community.toml`, `examples/dev-team.toml` and `examples/gaming.toml`. Each passes `guildsmith validate`, and a CI test in `crates/guildsmith-app/tests/examples.rs` checks that each converges against an empty `FakeDiscord` (SC-002).
+- [X] T063 [US2] Implement `PlanService` in `crates/guildsmith-app/src/services/plan.rs`, and `ApplyService` in `crates/guildsmith-app/src/services/apply.rs`: fresh snapshot, rebuild, compare hash, run ops in order with progress events, stop at the first error, return `ApplyReport { applied, failed, skipped }` (data-model §4 lifecycle).
+- [X] T064 [US2] Implement the MCP tools `spec_plan` and `spec_apply` (`guild`, `toml`, `plan_hash`) in `crates/guildsmith-mcp/src/tools/spec.rs`. `spec_apply` sends `notifications/progress` for each op when the client provides a `progressToken` (FR-014).
+- [X] T065 [US2] Implement the CLI commands `plan -g <guild> <file> [--json] [--detailed-exitcode]` and `apply -g <guild> <file> [--yes] [--plan-hash <hash>] [--json]` (progress to stderr). `--yes` is accepted only together with `--plan-hash`. The interactive path shows the plan and passes **its** hash to `ApplyService`, so any change before the user confirms is refused (constitution I) in `crates/guildsmith/src/cli/{plan,apply}.rs`.
+- [X] T066 [P] [US2] Add the example files `examples/community.toml`, `examples/dev-team.toml` and `examples/gaming.toml`. Each passes `guildsmith validate`, and a CI test in `crates/guildsmith-app/tests/examples.rs` checks that each converges against an empty `FakeDiscord` (SC-002).
 
 **Checkpoint**: export → plan → apply converges (milestone M2 core).
 
@@ -289,20 +289,20 @@ problem before any change.
 
 ### Tests for User Story 3
 
-- [ ] T067 [P] [US3] Cross-interface policy tests in `crates/guildsmith/tests/policy.rs`. Run every write-capable CLI command and MCP tool that exists so far against `FakeDiscord` and assert:
+- [X] T067 [P] [US3] Cross-interface policy tests in `crates/guildsmith/tests/policy.rs`. Run every write-capable CLI command and MCP tool that exists so far against `FakeDiscord` and assert:
   - servers outside the allowlist are refused (exit `3` / `refusal`);
   - in read-only mode every write is refused **before any request** (the FakeDiscord write log stays empty), and every read still works;
   - an empty allowlist logs a startup warning.
-- [ ] T068 [P] [US3] Preflight tests in `crates/guildsmith-app/tests/preflight.rs`. One server set up with several problems at once (missing MANAGE_ROLES, a spec role above the bot's highest role, the bot without ADMINISTRATOR, an overwrite granting a permission the bot lacks, an edit to a managed role) gives **one** report containing `MissingPermission`, `RoleTooHigh`, `NotAdministrator`, `CannotGrant` and `ManagedRoleEdit`, and no write happens.
-- [ ] T069 [P] [US3] Confirmation tests in `crates/guildsmith-app/tests/confirm.rs`: a destructive operation without `confirm` returns `{preview: true, would: [...]}` and doesn't touch `FakeDiscord`; with `confirm` it runs.
+- [X] T068 [P] [US3] Preflight tests in `crates/guildsmith-app/tests/preflight.rs`. One server set up with several problems at once (missing MANAGE_ROLES, a spec role above the bot's highest role, the bot without ADMINISTRATOR, an overwrite granting a permission the bot lacks, an edit to a managed role) gives **one** report containing `MissingPermission`, `RoleTooHigh`, `NotAdministrator`, `CannotGrant` and `ManagedRoleEdit`, and no write happens.
+- [X] T069 [P] [US3] Confirmation tests in `crates/guildsmith-app/tests/confirm.rs`: a destructive operation without `confirm` returns `{preview: true, would: [...]}` and doesn't touch `FakeDiscord`; with `confirm` it runs.
 
 ### Implementation for User Story 3
 
-- [ ] T070 [US3] Implement the preflight in `crates/guildsmith-app/src/preflight.rs` (`PreflightProblem` variants from data-model §5, all collected before anything is reported). It checks the Administrator profile for spec apply (R6/R7), the grant rules and role hierarchy.
-- [ ] T071 [US3] Wire the preflight into `ApplyService` (`crates/guildsmith-app/src/services/apply.rs`), so any problem refuses with every problem listed and makes no change (CLI exit `3`, MCP `refusal`).
-- [ ] T072 [P] [US3] Implement the generic confirmation guard (`Confirm::Preview(would)` / `Confirm::Run`) in `crates/guildsmith-app/src/confirm.rs`, for every destructive live operation.
-- [ ] T073 [US3] Log the empty-allowlist warning at startup ("no allowlist set; all servers the bot is in are reachable") for both `guildsmith mcp` and CLI commands, in `crates/guildsmith/src/main.rs`.
-- [ ] T074 [US3] Implement `GuildsService::list()` in `crates/guildsmith-app/src/services/guilds.rs`: it applies the allowlist (servers not allowed are hidden by default, each result marked `allowed`), so the rule lives in the application layer (constitution I/II). `guilds_list` in `crates/guildsmith-mcp/src/tools/guild.rs` and `guildsmith guilds` in `crates/guildsmith/src/cli/guilds.rs` only display its result.
+- [X] T070 [US3] Implement the preflight in `crates/guildsmith-app/src/preflight.rs` (`PreflightProblem` variants from data-model §5, all collected before anything is reported). It checks the Administrator profile for spec apply (R6/R7), the grant rules and role hierarchy.
+- [X] T071 [US3] Wire the preflight into `ApplyService` (`crates/guildsmith-app/src/services/apply.rs`), so any problem refuses with every problem listed and makes no change (CLI exit `3`, MCP `refusal`).
+- [X] T072 [P] [US3] Implement the generic confirmation guard (`Confirm::Preview(would)` / `Confirm::Run`) in `crates/guildsmith-app/src/confirm.rs`, for every destructive live operation.
+- [X] T073 [US3] Log the empty-allowlist warning at startup ("no allowlist set; all servers the bot is in are reachable") for both `guildsmith mcp` and CLI commands, in `crates/guildsmith/src/main.rs`.
+- [X] T074 [US3] Implement `GuildsService::list()` in `crates/guildsmith-app/src/services/guilds.rs`: it applies the allowlist (servers not allowed are hidden by default, each result marked `allowed`), so the rule lives in the application layer (constitution I/II). `guilds_list` in `crates/guildsmith-mcp/src/tools/guild.rs` and `guildsmith guilds` in `crates/guildsmith/src/cli/guilds.rs` only display its result.
 
 **Checkpoint**: Plan/apply plus safety (milestone M2 complete).
 
@@ -319,8 +319,8 @@ The permission explainer is built in Foundational.
 
 ### Tests for User Story 4
 
-- [ ] T075 [P] [US4] Cache tests in `crates/guildsmith-app/tests/cache.rs`: the snapshot is cached per server with a "60-second TTL"; any write guildsmith makes clears it; `refresh` clears it; `spec_apply` and preflight bypass it (R18).
-- [ ] T076 [P] [US4] Live service tests in `crates/guildsmith-app/tests/live.rs` against `FakeDiscord`:
+- [X] T075 [P] [US4] Cache tests in `crates/guildsmith-app/tests/cache.rs`: the snapshot is cached per server with a "60-second TTL"; any write guildsmith makes clears it; `refresh` clears it; `spec_apply` and preflight bypass it (R18).
+- [X] T076 [P] [US4] Live service tests in `crates/guildsmith-app/tests/live.rs` against `FakeDiscord`:
   - `role_upsert` creates when no `role` is given and otherwise updates;
   - `channel_upsert` places a channel under a parent;
   - `channels_reorder` sends one request;
@@ -328,7 +328,7 @@ The permission explainer is built in Foundational.
   - `member_roles` adds and removes roles;
   - `messages_read` has "limit default 20, max 100";
   - every write carries the audit reason.
-- [ ] T077 [P] [US4] MCP protocol tests in `crates/guildsmith-mcp/tests/core_tools.rs`:
+- [X] T077 [P] [US4] MCP protocol tests in `crates/guildsmith-mcp/tests/core_tools.rs`:
   - with the default toolsets, `tools/list` has exactly the 21 `core` tools from contracts/mcp-tools.md, with RO/W/D/I annotations matching the table and `openWorldHint: true`;
   - `role_delete` and `channel_delete` set `_meta["anthropic/requiresUserInteraction"] = true`;
   - `messages_read` output wraps each message as untrusted (R19);
@@ -338,13 +338,13 @@ The permission explainer is built in Foundational.
 
 ### Implementation for User Story 4
 
-- [ ] T078 [P] [US4] Implement the snapshot cache in `crates/guildsmith-app/src/cache.rs` (R18).
-- [ ] T079 [US4] Implement the remaining twilight port methods (members search, add/remove member role, send/read messages, ban, kick, timeout, unban) in `crates/guildsmith-discord/src/port.rs`.
-- [ ] T080 [US4] Implement the live services (role, channel, overwrite, member and message operations; refresh; explain) in `crates/guildsmith-app/src/services/live.rs`. Each runs `ensure_allowed`, `ensure_writable` (for writes), `Confirm` (for destructive operations), and invalidates the cache after writes.
-- [ ] T081 [US4] Implement the MCP tools `refresh`, `role_upsert`, `role_delete`, `channel_upsert`, `channel_delete`, `channels_reorder`, `permissions_set`, `permissions_explain`, `members_find`, `member_roles`, `message_send` and `messages_read` in `crates/guildsmith-mcp/src/tools/{guild,roles,channels,perms,members,messages}.rs`.
-- [ ] T082 [US4] Implement the MCP tool `bot_preflight` (`guild`, `action?`, using US3's preflight from T070) in `crates/guildsmith-mcp/src/tools/perms.rs`, which brings `core` to 21 tools.
-- [ ] T083 [US4] Implement the `moderation` toolset (`member_timeout` "≤ 28 days, `0` = clear", `member_kick` D, `member_ban` D with `delete_message_seconds?`, `ban_remove` W) in `crates/guildsmith-mcp/src/tools/moderation.rs`, registered only when `moderation` is enabled.
-- [ ] T084 [US4] Add the new commands and tools to `crates/guildsmith/tests/secret_leak.rs`, and update `cargo xtask budgets` to check the `core` tool count (21) and that `core,moderation` stays ≤ 25.
+- [X] T078 [P] [US4] Implement the snapshot cache in `crates/guildsmith-app/src/cache.rs` (R18).
+- [X] T079 [US4] Implement the remaining twilight port methods (members search, add/remove member role, send/read messages, ban, kick, timeout, unban) in `crates/guildsmith-discord/src/port.rs`.
+- [X] T080 [US4] Implement the live services (role, channel, overwrite, member and message operations; refresh; explain) in `crates/guildsmith-app/src/services/live.rs`. Each runs `ensure_allowed`, `ensure_writable` (for writes), `Confirm` (for destructive operations), and invalidates the cache after writes.
+- [X] T081 [US4] Implement the MCP tools `refresh`, `role_upsert`, `role_delete`, `channel_upsert`, `channel_delete`, `channels_reorder`, `permissions_set`, `permissions_explain`, `members_find`, `member_roles`, `message_send` and `messages_read` in `crates/guildsmith-mcp/src/tools/{guild,roles,channels,perms,members,messages}.rs`.
+- [X] T082 [US4] Implement the MCP tool `bot_preflight` (`guild`, `action?`, using US3's preflight from T070) in `crates/guildsmith-mcp/src/tools/perms.rs`, which brings `core` to 21 tools.
+- [X] T083 [US4] Implement the `moderation` toolset (`member_timeout` "≤ 28 days, `0` = clear", `member_kick` D, `member_ban` D with `delete_message_seconds?`, `ban_remove` W) in `crates/guildsmith-mcp/src/tools/moderation.rs`, registered only when `moderation` is enabled.
+- [X] T084 [US4] Add the new commands and tools to `crates/guildsmith/tests/secret_leak.rs`, and update `cargo xtask budgets` to check the `core` tool count (21) and that `core,moderation` stays ≤ 25.
 
 **Checkpoint**: The agent tools are complete: all 21 `core` tools plus `moderation`.
 
@@ -360,23 +360,23 @@ shown.
 
 ### Tests for User Story 5
 
-- [ ] T085 [P] [US5] Doctor tests in `crates/guildsmith-app/tests/doctor.rs`:
+- [X] T085 [P] [US5] Doctor tests in `crates/guildsmith-app/tests/doctor.rs`:
   - a correct setup passes every item;
   - an invalid token reports "token is invalid" without the token;
   - missing permissions are listed with the toolset that needs each;
   - role-order problems are listed;
   - the allowlist status is reported;
   - a token whose `GET users/@me` lacks `bot: true` is reported as "not a bot token" and every command refuses to run (FR-022).
-- [ ] T086 [P] [US5] CLI tests in `crates/guildsmith/tests/cli_doctor.rs`:
+- [X] T086 [P] [US5] CLI tests in `crates/guildsmith/tests/cli_doctor.rs`:
   - `doctor` exits `0` when everything passes and `3` otherwise;
   - `auth set` reads from stdin or a hidden prompt, never from an argument;
   - `auth status` never prints the token.
 
 ### Implementation for User Story 5
 
-- [ ] T087 [US5] Implement `DoctorService` in `crates/guildsmith-app/src/services/doctor.rs`: token check through `GET users/@me` (valid, and `bot: true`, FR-022), allowlist status, permissions against the minimum for each enabled toolset, role order through T070's preflight.
-- [ ] T088 [US5] Implement the CLI `doctor -g <guild>` (exit `0` when every check passes, `3` otherwise) in `crates/guildsmith/src/cli/doctor.rs`.
-- [ ] T089 [P] [US5] Implement `guildsmith auth set | clear | status` with the OS keyring (feature `keyring`, with T011's musl result applied) in `crates/guildsmith/src/cli/auth.rs`.
+- [X] T087 [US5] Implement `DoctorService` in `crates/guildsmith-app/src/services/doctor.rs`: token check through `GET users/@me` (valid, and `bot: true`, FR-022), allowlist status, permissions against the minimum for each enabled toolset, role order through T070's preflight.
+- [X] T088 [US5] Implement the CLI `doctor -g <guild>` (exit `0` when every check passes, `3` otherwise) in `crates/guildsmith/src/cli/doctor.rs`.
+- [X] T089 [P] [US5] Implement `guildsmith auth set | clear | status` with the OS keyring (feature `keyring`, with T011's musl result applied) in `crates/guildsmith/src/cli/auth.rs`.
 
 **Checkpoint**: Milestone M3 complete. The MCP protocol tests pass and the token budget is met.
 
@@ -392,11 +392,11 @@ and Windows.
 
 ### Tests for User Story 6
 
-- [ ] T090 [P] [US6] Install smoke tests in `.github/workflows/install-smoke.yml` on ubuntu, macos and windows:
+- [X] T090 [P] [US6] Install smoke tests in `.github/workflows/install-smoke.yml` on ubuntu, macos and windows:
   - the dist installer, then `guildsmith --version`;
   - `npx -y guildsmith mcp` answers `tools/list`, also with `npm install --ignore-scripts` and with pnpm;
   - `cargo install --path crates/guildsmith` with toolchain 1.97.
-- [ ] T091 [P] [US6] Plugin manifest checks in `xtask/src/plugins.rs` (run in CI):
+- [X] T091 [P] [US6] Plugin manifest checks in `xtask/src/plugins.rs` (run in CI):
   - `plugins/claude-code/.claude-plugin/plugin.json` and `plugins/codex/.codex-plugin/plugin.json` parse;
   - both `.mcp.json` files point at the same pinned `guildsmith@<version>`;
   - `userConfig.discord_token` has `"sensitive": true`;
@@ -404,27 +404,27 @@ and Windows.
 
 ### Implementation for User Story 6
 
-- [ ] T092 [P] [US6] Create the npm launcher `npm/guildsmith/package.json` and `npm/guildsmith/bin/guildsmith.js`. It finds `@guildsmith/<platform>` with `require.resolve`, runs the binary with the same arguments and stdio, and passes through the exit code. **No postinstall script.**
-- [ ] T093 [P] [US6] Create the platform package templates `npm/platforms/{linux-x64,linux-arm64,darwin-x64,darwin-arm64,win32-x64}/package.json`, each setting **only** `os` and `cpu` (no `libc`; the Linux builds are static musl, R15). List them as `optionalDependencies` of `npm/guildsmith/package.json`.
-- [ ] T094 [US6] Implement `cargo xtask npm-pack` (fills versions and copies each dist artifact's binary into its platform package) in `xtask/src/npm.rs`. Add an npm publish job, after the dist build, to `.github/workflows/release.yml`, gated on a manually approved environment.
-- [ ] T095 [P] [US6] Create the Claude Code plugin in `plugins/claude-code/` and `.claude-plugin/marketplace.json`:
+- [X] T092 [P] [US6] Create the npm launcher `npm/guildsmith/package.json` and `npm/guildsmith/bin/guildsmith.js`. It finds `@guildsmith/<platform>` with `require.resolve`, runs the binary with the same arguments and stdio, and passes through the exit code. **No postinstall script.**
+- [X] T093 [P] [US6] Create the platform package templates `npm/platforms/{linux-x64,linux-arm64,darwin-x64,darwin-arm64,win32-x64}/package.json`, each setting **only** `os` and `cpu` (no `libc`; the Linux builds are static musl, R15). List them as `optionalDependencies` of `npm/guildsmith/package.json`.
+- [X] T094 [US6] Implement `cargo xtask npm-pack` (fills versions and copies each dist artifact's binary into its platform package) in `xtask/src/npm.rs`. Add an npm publish job, after the dist build, to `.github/workflows/release.yml`, gated on a manually approved environment.
+- [X] T095 [P] [US6] Create the Claude Code plugin in `plugins/claude-code/` and `.claude-plugin/marketplace.json`:
   - `.claude-plugin/marketplace.json` at the repo root (`name: guildsmith`, owner `clarkscode`, source `./plugins/claude-code`);
   - `plugins/claude-code/.claude-plugin/plugin.json`, with `userConfig.discord_token` (string, sensitive, required) and `userConfig.guilds` (string, optional);
   - `plugins/claude-code/.mcp.json`, running `npx -y guildsmith@<version> mcp` with env `DISCORD_TOKEN=${user_config.discord_token}` and `GUILDSMITH_GUILDS=${user_config.guilds}` (contracts/plugins.md).
-- [ ] T096 [P] [US6] Create the Codex plugin in `plugins/codex/` and `.agents/plugins/marketplace.json`:
+- [X] T096 [P] [US6] Create the Codex plugin in `plugins/codex/` and `.agents/plugins/marketplace.json`:
   - `plugins/codex/.codex-plugin/plugin.json`;
   - `plugins/codex/.mcp.json` (same command, `"env_vars": ["DISCORD_TOKEN", "GUILDSMITH_GUILDS"]`);
   - `.agents/plugins/marketplace.json` at the repo root, next to the existing Spec Kit files in `.agents/`; don't change those.
   - Write `docs/codex.md` with the plain `config.toml` alternative (`default_tools_approval_mode = "writes"`).
-- [ ] T097 [P] [US6] Write the six skills (agentskills.io format: `name`, `description`, plus `user-invocable` where needed) in `plugins/skills/`:
+- [X] T097 [P] [US6] Write the six skills (agentskills.io format: `name`, `description`, plus `user-invocable` where needed) in `plugins/skills/`:
   - `guild-spec/SKILL.md`;
   - `guild-safe-apply/SKILL.md`: export → edit → validate → plan → show the user → apply with the hash;
   - `guild-permissions/SKILL.md`;
   - `guild-plan/SKILL.md` (user-invocable, `/guild-plan`);
   - `guild-apply/SKILL.md` (user-invocable, `/guild-apply`);
   - `guild-doctor/SKILL.md` (user-invocable, `/guild-doctor`).
-- [ ] T098 [US6] Implement `cargo xtask sync-plugins` (copies `plugins/skills/` into `plugins/claude-code/skills/` and `plugins/codex/skills/`) in `xtask/src/sync.rs`, and run it.
-- [ ] T099 [P] [US6] Add the crates.io publish order (`guildsmith-core` → `guildsmith-app` → `guildsmith-discord` → `guildsmith-mcp` → `guildsmith`) to `.github/workflows/release.yml`, gated on the same manually approved environment as T094.
+- [X] T098 [US6] Implement `cargo xtask sync-plugins` (copies `plugins/skills/` into `plugins/claude-code/skills/` and `plugins/codex/skills/`) in `xtask/src/sync.rs`, and run it.
+- [X] T099 [P] [US6] Add the crates.io publish order (`guildsmith-core` → `guildsmith-app` → `guildsmith-discord` → `guildsmith-mcp` → `guildsmith`) to `.github/workflows/release.yml`, gated on the same manually approved environment as T094.
 
 **Checkpoint**: Every install channel works (milestone M4).
 

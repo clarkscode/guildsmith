@@ -31,6 +31,9 @@ twilight-http = { version = "0.17.1", default-features = false, features = ["rus
 twilight-model = "0.17.1"
 twilight-validate = "0.17.0"
 # twilight leaves the TLS crypto provider to the application; ring builds on every target (incl. musl).
+# The audit-log header for raw requests, built the way twilight builds it.
+http = { version = "1", default-features = false }
+percent-encoding = "2"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
 # MCP (research R3).
@@ -49,6 +52,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 blake3 = "1"
 keyring = "4"
+# Hidden prompt for `guildsmith auth set`.
+rpassword = "7"
 
 # Dev and test.
 proptest = "1.12"

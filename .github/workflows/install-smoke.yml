@@ -1,0 +1,126 @@
+# Install smoke tests (quickstart §8, SC-011): a fresh install through every channel works on
+# Linux, macOS and Windows.
+#
+# The installers, npm packages and crates only exist once a release is published, so this runs
+# after the Release workflow finishes for a tag, or by hand for an existing version. It does not
+# run on pull requests. (A release created by GITHUB_TOKEN doesn't fire `release` events, hence
+# `workflow_run`.)
+name: Install smoke
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version to test, e.g. 0.1.0"
+        required: true
+        type: string
+
+env:
+  # The MCP handshake plus tools/list; every channel must answer it. No token is needed (R17).
+  MCP_SESSION: |
+    {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}
+    {"jsonrpc":"2.0","method":"notifications/initialized"}
+    {"jsonrpc":"2.0","id":2,"method":"tools/list"}
+
+jobs:
+  version:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        shell: bash
+        env:
+          RAW: ${{ inputs.version || github.event.workflow_run.head_branch }}
+        run: |
+          version="${RAW#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "not a release version: $RAW" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  installer:
+    needs: version
+    name: dist installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      BASE: https://github.com/clarkscode/guildsmith/releases/download/v${{ needs.version.outputs.version }}
+    steps:
+      - name: Install (shell)
+        if: runner.os != 'Windows'
+        run: curl --proto '=https' --tlsv1.2 -LsSf "$BASE/guildsmith-installer.sh" | sh
+      - name: Install (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -c "irm $env:BASE/guildsmith-installer.ps1 | iex"
+      - shell: bash
+        run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: guildsmith --version
+        shell: bash
+        run: guildsmith --version | tee /dev/stderr | grep -F "$VERSION"
+      - name: guildsmith mcp answers tools/list
+        shell: bash
+        run: printf '%s' "$MCP_SESSION" | guildsmith mcp | grep -F '"guilds_list"'
+
+  npm:
+    needs: version
+    name: npm (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: npx -y guildsmith mcp
+        run: printf '%s' "$MCP_SESSION" | npx -y "guildsmith@$VERSION" mcp | grep -F '"guilds_list"'
+      - name: npm install --ignore-scripts
+        run: |
+          dir="$(mktemp -d)"
+          cd "$dir"
+          npm init -y >/dev/null
+          npm install --ignore-scripts "guildsmith@$VERSION"
+          printf '%s' "$MCP_SESSION" | npx --no-install guildsmith mcp | grep -F '"guilds_list"'
+      - name: pnpm (scripts blocked by default)
+        run: printf '%s' "$MCP_SESSION" | pnpm dlx "guildsmith@$VERSION" mcp | grep -F '"guilds_list"'
+
+  cargo-install:
+    needs: version
+    name: cargo install on MSRV (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: v${{ needs.version.outputs.version }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.97
+      - run: cargo install --path crates/guildsmith --locked
+      - name: guildsmith --version
+        shell: bash
+        run: guildsmith --version | grep -F "${{ needs.version.outputs.version }}"

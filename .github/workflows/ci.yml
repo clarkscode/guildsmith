@@ -29,6 +29,20 @@ jobs:
       - name: Schema drift check
         run: cargo xtask schema --check
 
+  plugins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Plugin manifests and skill copies
+        run: cargo xtask check-plugins
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm launcher syntax
+        run: node --check npm/guildsmith/bin/guildsmith.js
+
   msrv:
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,38 @@
+# Publishes the crates to crates.io in dependency order:
+# guildsmith-core → guildsmith-app → guildsmith-discord → guildsmith-mcp → guildsmith.
+#
+# Called by release.yml (dist `publish-jobs = ["./publish-crates"]`). The job runs in the
+# `release` environment, so it waits for the same manual approval as the npm job and only that
+# environment holds CARGO_REGISTRY_TOKEN (docs/release.md).
+name: Publish crates
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  crates:
+    runs-on: ubuntu-22.04
+    environment: release
+    # Permissions come from the calling job in release.yml.
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          for crate in guildsmith-core guildsmith-app guildsmith-discord guildsmith-mcp guildsmith; do
+            # cargo publish waits until the crate is in the index, so the next one can depend on
+            # it. Re-running after a partial failure skips versions that already exist.
+            if ! cargo publish --locked -p "$crate" 2>&1 | tee publish.log; then
+              grep -q "already exists" publish.log || exit 1
+              echo "$crate is already published; skipping"
+            fi
+          done

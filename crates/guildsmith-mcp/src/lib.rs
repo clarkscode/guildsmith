@@ -3,6 +3,8 @@
 
 pub mod server;
 pub mod shape;
+// Tool parameter docs become schema descriptions for agents: plain words, no backticks.
+#[allow(clippy::doc_markdown)]
 mod tools;
 pub mod toolsets;
 

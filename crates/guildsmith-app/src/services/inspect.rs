@@ -15,7 +15,7 @@ use crate::services::guilds;
 /// Resolves the server input and fetches its snapshot.
 pub async fn snapshot<P: DiscordPort>(app: &App<P>, guild: Option<&str>) -> Result<Snapshot, ServiceError> {
     let id = guilds::resolve(app, guild).await?;
-    Ok(app.port.snapshot(id).await?)
+    Ok(app.snapshot(id).await?)
 }
 
 fn check_fields(requested: &[String], valid: &[&str]) -> Result<(), ServiceError> {
@@ -53,6 +53,7 @@ pub struct RoleRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mentionable: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<Vec<String>>")]
     pub permissions: Option<PermissionSet>,
 }
 

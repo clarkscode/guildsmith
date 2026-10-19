@@ -1,0 +1,110 @@
+#:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json
+# A general community server: announcements, chat, help forum, voice, and a private staff area.
+# Plan it against a server you created: guildsmith plan -g <server> examples/community.toml
+
+[guild]
+name = "Community"                # informational
+
+[[roles]]                         # listed highest first
+name = "Admin"
+color = "#E74C3C"
+hoist = true
+permissions = ["administrator"]
+
+[[roles]]
+name = "Moderator"
+color = "#3BA55D"
+hoist = true
+mentionable = true
+permissions = ["kick_members", "manage_messages", "manage_threads", "moderate_members", "pin_messages", "view_audit_log"]
+
+[[roles]]
+name = "Member"
+color = "#5865F2"
+permissions = ["add_reactions", "attach_files", "embed_links", "send_messages_in_threads", "create_public_threads"]
+
+[[roles]]
+name = "@everyone"
+permissions = ["view_channel", "send_messages", "read_message_history", "connect", "speak", "use_vad"]
+
+[[categories]]
+name = "Info"
+overwrites = [
+  { target = "@everyone", deny = ["send_messages"] },
+  { target = "@Moderator", allow = ["send_messages"] },
+]
+
+  [[categories.channels]]
+  name = "welcome"
+  kind = "text"
+  topic = "Start here: rules and how to get roles."
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "announcements"
+  kind = "text"
+  topic = "News from the team."
+  sync_permissions = true
+
+[[categories]]
+name = "Community"
+
+  [[categories.channels]]
+  name = "general"
+  kind = "text"
+  topic = "Talk about anything."
+  slowmode = 5
+
+  [[categories.channels]]
+  name = "introductions"
+  kind = "text"
+  topic = "Say hello!"
+
+  [[categories.channels]]
+  name = "help"
+  kind = "forum"
+  topic = "Ask a question; one post per question."
+  default_reaction = "👍"
+  tags = [
+    { name = "question" },
+    { name = "solved", moderated = true },
+  ]
+
+[[categories]]
+name = "Voice"
+
+  [[categories.channels]]
+  name = "Lounge"
+  kind = "voice"
+  bitrate = 64000
+  user_limit = 0
+
+  [[categories.channels]]
+  name = "Events"
+  kind = "stage"
+
+[[categories]]
+name = "Staff"
+overwrites = [
+  { target = "@everyone", deny = ["view_channel"] },
+  { target = "@Moderator", allow = ["view_channel"] },
+]
+
+  [[categories.channels]]
+  name = "mod-chat"
+  kind = "text"
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "mod-log"
+  kind = "text"
+  topic = "Automated moderation log."
+  overwrites = [
+    { target = "@everyone", deny = ["view_channel"] },
+    { target = "@Moderator", allow = ["view_channel"], deny = ["send_messages"] },
+  ]
+
+[prune]
+roles = false
+categories = false
+channels = false

@@ -19,7 +19,6 @@ pub(crate) fn kind(t: ChannelType) -> LiveChannelKind {
     }
 }
 
-#[allow(dead_code)] // used by the write path (US2)
 pub(crate) fn to_twilight_kind(k: LiveChannelKind) -> ChannelType {
     match k {
         LiveChannelKind::Category => ChannelType::GuildCategory,

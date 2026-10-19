@@ -1,0 +1,38 @@
+---
+source: crates/guildsmith/tests/cli_plan.rs
+expression: "serde_json::to_string_pretty(&v).unwrap()"
+---
+{
+  "estimated_requests": 14,
+  "ops": [
+    {
+      "risk": "safe",
+      "summary": "create role @Staff"
+    },
+    {
+      "risk": "safe",
+      "summary": "reorder roles (2)"
+    },
+    {
+      "risk": "safe",
+      "summary": "update channel #general: topic \"Talk about anything\" → \"Welcome!\""
+    },
+    {
+      "risk": "safe",
+      "summary": "create text channel #staff-room in Community"
+    },
+    {
+      "risk": "safe",
+      "summary": "reorder channels (2)"
+    }
+  ],
+  "plan_hash": "gsp_[hash]",
+  "risk": "safe",
+  "unmanaged": [
+    "channel #mod-log, id 102",
+    "channel Lobby, id 103",
+    "role @Guildsmith, id 9",
+    "role @Member, id 11"
+  ],
+  "warnings": []
+}

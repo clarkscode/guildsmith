@@ -1,0 +1,123 @@
+#:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json
+# A software team: engineering channels, on-call, design reviews and standup voice.
+# Plan it against a server you created: guildsmith plan -g <server> examples/dev-team.toml
+
+[guild]
+name = "Dev Team"                 # informational
+
+[[roles]]
+name = "Lead"
+color = "#F1C40F"
+hoist = true
+permissions = ["manage_channels", "manage_messages", "manage_threads", "mention_everyone", "pin_messages"]
+
+[[roles]]
+name = "Engineer"
+color = "#1ABC9C"
+hoist = true
+mentionable = true
+permissions = ["attach_files", "embed_links", "create_public_threads", "send_messages_in_threads"]
+
+[[roles]]
+name = "On-call"
+color = "#E67E22"
+mentionable = true
+permissions = []
+
+[[roles]]
+name = "Guest"
+permissions = []
+
+[[roles]]
+name = "@everyone"
+permissions = ["read_message_history", "add_reactions"]
+
+[[categories]]
+name = "Team"
+overwrites = [
+  { target = "@everyone", deny = ["view_channel"] },
+  { target = "@Engineer", allow = ["view_channel", "send_messages"] },
+  { target = "@Guest", allow = ["view_channel"], deny = ["send_messages"] },
+]
+
+  [[categories.channels]]
+  name = "general"
+  kind = "text"
+  topic = "Team chat."
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "standup"
+  kind = "text"
+  topic = "Yesterday / today / blockers, in a thread per day."
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "releases"
+  kind = "text"
+  topic = "Release notes and deploy announcements."
+  overwrites = [
+    { target = "@everyone", deny = ["view_channel"] },
+    { target = "@Engineer", allow = ["view_channel"], deny = ["send_messages"] },
+    { target = "@Lead", allow = ["view_channel", "send_messages"] },
+    { target = "@Guest", allow = ["view_channel"], deny = ["send_messages"] },
+  ]
+
+[[categories]]
+name = "Engineering"
+overwrites = [
+  { target = "@everyone", deny = ["view_channel"] },
+  { target = "@Engineer", allow = ["view_channel", "send_messages"] },
+]
+
+  [[categories.channels]]
+  name = "backend"
+  kind = "text"
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "frontend"
+  kind = "text"
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "design-reviews"
+  kind = "forum"
+  topic = "One post per design doc. Link the doc and tag its status."
+  tags = [
+    { name = "draft" },
+    { name = "in review" },
+    { name = "approved", moderated = true },
+  ]
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "incidents"
+  kind = "text"
+  topic = "Page @On-call here. Postmortems go in #design-reviews."
+  overwrites = [
+    { target = "@everyone", deny = ["view_channel"] },
+    { target = "@Engineer", allow = ["view_channel", "send_messages"] },
+    { target = "@On-call", allow = ["mention_everyone"] },
+  ]
+
+[[categories]]
+name = "Voice"
+overwrites = [
+  { target = "@everyone", deny = ["view_channel"] },
+  { target = "@Engineer", allow = ["view_channel", "connect", "speak"] },
+]
+
+  [[categories.channels]]
+  name = "Standup"
+  kind = "voice"
+  bitrate = 64000
+  user_limit = 25
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "Pairing"
+  kind = "voice"
+  bitrate = 96000
+  user_limit = 4
+  sync_permissions = true

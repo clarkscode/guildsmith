@@ -12,7 +12,7 @@ use std::sync::Arc;
 use clap::Parser;
 use guildsmith_app::App;
 use guildsmith_app::config::{self, Config, Dirs, LoadOptions, ProcessEnv, TokenStore};
-use guildsmith_app::policy;
+use guildsmith_app::policy::{self, Policy};
 use guildsmith_app::ports::DiscordPort;
 use guildsmith_discord::TwilightDiscord;
 
@@ -56,6 +56,13 @@ pub fn load_config(cli: &Cli) -> Result<Config, String> {
     Ok(cfg)
 }
 
+/// The startup warning for an empty allowlist (FR-016), for commands that reach Discord.
+#[must_use]
+pub fn startup_warning(command: &Command, policy: &Policy) -> Option<&'static str> {
+    let offline = matches!(command, Command::Validate(_) | Command::Schema(_) | Command::Auth(_));
+    if offline { None } else { policy.allowlist_warning() }
+}
+
 /// The process entry point used by `main`.
 #[must_use]
 pub fn main_entry() -> std::process::ExitCode {
@@ -71,6 +78,10 @@ pub fn main_entry() -> std::process::ExitCode {
     for w in &cfg.warnings {
         tracing::warn!("{w}");
     }
+    let policy = cfg.policy();
+    if let Some(w) = startup_warning(&cli.command, &policy) {
+        tracing::warn!("{w}");
+    }
     let runtime = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
         Ok(rt) => rt,
         Err(e) => {
@@ -78,11 +89,24 @@ pub fn main_entry() -> std::process::ExitCode {
             return Exit::Error.into();
         }
     };
-    let app = Arc::new(App::new(TwilightDiscord::new(cfg.token.clone()), cfg.policy()));
+    let app = Arc::new(App::new(TwilightDiscord::new(cfg.token.clone()), policy));
     let (mut out, mut err) = (std::io::stdout(), std::io::stderr());
     let exit = runtime.block_on(dispatch(&cli, app, &mut out, &mut err));
     let _ = out.flush();
     exit.into()
+}
+
+/// Asks on the terminal; `None` when stdin isn't one, so there is nobody to ask.
+fn terminal_confirm(question: &str) -> Option<bool> {
+    use std::io::IsTerminal;
+    if !std::io::stdin().is_terminal() {
+        return None;
+    }
+    eprint!("{question}");
+    let _ = std::io::stderr().flush();
+    let mut answer = String::new();
+    std::io::stdin().read_line(&mut answer).ok()?;
+    Some(matches!(answer.trim(), "y" | "Y" | "yes" | "YES" | "Yes"))
 }
 
 /// Runs one command against `app`. Generic over the Discord port so tests can pass
@@ -93,6 +117,17 @@ pub async fn dispatch<P: DiscordPort + 'static>(
     out: &mut dyn Write,
     err: &mut dyn Write,
 ) -> Exit {
+    dispatch_with(cli, app, out, err, &mut terminal_confirm).await
+}
+
+/// `dispatch` with the confirmation prompt supplied by the caller (tests answer it).
+pub async fn dispatch_with<P: DiscordPort + 'static>(
+    cli: &Cli,
+    app: Arc<App<P>>,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+    confirm: &mut cli::apply::Confirm<'_>,
+) -> Exit {
     let guild = cli.guild.as_deref();
     match &cli.command {
         Command::Mcp(_) => cli::mcp::run(app).await,
@@ -100,5 +135,12 @@ pub async fn dispatch<P: DiscordPort + 'static>(
         Command::Export(args) => cli::export::run(&app, guild, args, out, err).await,
         Command::Validate(args) => cli::validate::run(args, cli.json, out, err),
         Command::Schema(args) => cli::schema::run(args, out, err),
+        Command::Plan(args) => cli::plan::run(&app, guild, args, cli.json, out, err).await,
+        Command::Apply(args) => cli::apply::run(&app, guild, args, cli.json, (out, err), confirm).await,
+        Command::Doctor => cli::doctor::run(&app, guild, cli.json, out).await,
+        Command::Auth(args) => {
+            let source = load_config(cli).ok().and_then(|c| c.token_source);
+            cli::auth::run(args.command, &cli::auth::Keyring, source, &mut cli::auth::read_token, out, err)
+        }
     }
 }

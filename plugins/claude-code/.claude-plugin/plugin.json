@@ -1,0 +1,25 @@
+{
+  "name": "guildsmith",
+  "version": "0.1.0",
+  "description": "Manage Discord servers from Claude Code: export, plan and apply server structure, plus day-to-day admin tools.",
+  "author": { "name": "clarkscode" },
+  "license": "MIT OR Apache-2.0",
+  "repository": "https://github.com/clarkscode/guildsmith",
+  "homepage": "https://github.com/clarkscode/guildsmith",
+  "keywords": ["discord", "mcp", "infrastructure-as-code"],
+  "userConfig": {
+    "discord_token": {
+      "type": "string",
+      "title": "Discord bot token",
+      "description": "The bot token from the Discord Developer Portal. Stored in the OS secure store.",
+      "sensitive": true,
+      "required": true
+    },
+    "guilds": {
+      "type": "string",
+      "title": "Allowed server IDs (comma-separated)",
+      "description": "Leave empty to allow every server the bot is in.",
+      "required": false
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "guildsmith",
+  "version": "0.1.0",
+  "description": "Manage Discord servers from Codex: export, plan and apply server structure, plus day-to-day admin tools.",
+  "author": { "name": "clarkscode" },
+  "license": "MIT OR Apache-2.0",
+  "repository": "https://github.com/clarkscode/guildsmith",
+  "homepage": "https://github.com/clarkscode/guildsmith",
+  "keywords": ["discord", "mcp", "infrastructure-as-code"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "guildsmith",
+    "shortDescription": "Discord server management: export, plan, apply and admin tools.",
+    "category": "Productivity"
+  }
+}

@@ -28,7 +28,7 @@ pub struct MemberInfo {
 }
 
 /// One step of the calculation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum StepKind {
     Owner,

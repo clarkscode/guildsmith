@@ -1,0 +1,17 @@
+---
+source: crates/guildsmith/tests/cli_plan.rs
+expression: "r.out.replace(&hash, \"gsp_[hash]\")"
+---
+Plan: 5 change(s), safe
+  1. [safe] create role @Staff
+  2. [safe] reorder roles (2)
+  3. [safe] update channel #general: topic "Talk about anything" → "Welcome!"
+  4. [safe] create text channel #staff-room in Community
+  5. [safe] reorder channels (2)
+Unmanaged (left alone):
+  - channel #mod-log, id 102
+  - channel Lobby, id 103
+  - role @Guildsmith, id 9
+  - role @Member, id 11
+Estimated requests: 14
+Plan hash: gsp_[hash]

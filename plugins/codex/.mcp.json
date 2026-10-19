@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "guildsmith": {
+      "command": "npx",
+      "args": ["-y", "guildsmith@0.1.0", "mcp"],
+      "env_vars": ["DISCORD_TOKEN", "GUILDSMITH_GUILDS"]
+    }
+  }
+}

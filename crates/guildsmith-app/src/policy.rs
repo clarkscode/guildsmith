@@ -92,11 +92,20 @@ pub struct Refusal {
     pub kind: RefusalKind,
     pub reason: String,
     pub hint: Option<String>,
+    /// Structured specifics, e.g. every preflight problem.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
 }
 
 impl Refusal {
     pub fn new(kind: RefusalKind, reason: impl Into<String>, hint: Option<&str>) -> Self {
-        Refusal { kind, reason: reason.into(), hint: hint.map(str::to_owned) }
+        Refusal { kind, reason: reason.into(), hint: hint.map(str::to_owned), details: None }
+    }
+
+    #[must_use]
+    pub fn with_details(mut self, details: serde_json::Value) -> Self {
+        self.details = Some(details);
+        self
     }
 }
 

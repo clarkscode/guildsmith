@@ -3,7 +3,7 @@
 use guildsmith_app::ports::{PortError, PortResult};
 use guildsmith_core::Id;
 use twilight_model::id::Id as TId;
-use twilight_model::id::marker::{ChannelMarker, GenericMarker, GuildMarker, MessageMarker, RoleMarker, UserMarker};
+use twilight_model::id::marker::{ChannelMarker, GuildMarker, MessageMarker, RoleMarker, UserMarker};
 
 fn to<M>(id: Id) -> PortResult<TId<M>> {
     TId::new_checked(id.0).ok_or_else(|| PortError::NotFound("id 0 is not a Discord id".to_owned()))
@@ -25,12 +25,6 @@ pub(crate) fn message(id: Id) -> PortResult<TId<MessageMarker>> {
     to(id)
 }
 
-#[allow(dead_code)] // used by the write path (US2/US4)
-pub(crate) fn generic(id: Id) -> PortResult<TId<GenericMarker>> {
-    to(id)
-}
-
-#[allow(dead_code)] // used by the write path (US2/US4)
 pub(crate) fn role(id: Id) -> PortResult<TId<RoleMarker>> {
     to(id)
 }

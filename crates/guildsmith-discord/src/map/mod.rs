@@ -13,7 +13,6 @@ pub(crate) fn perms(p: Permissions) -> PermissionSet {
     PermissionSet::from_bits(p.bits())
 }
 
-#[allow(dead_code)] // used by the write path (US2/US4)
 pub(crate) fn to_perms(p: PermissionSet) -> Permissions {
     Permissions::from_bits_retain(p.bits())
 }

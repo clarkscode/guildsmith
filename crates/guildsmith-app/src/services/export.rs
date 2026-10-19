@@ -30,7 +30,7 @@ pub async fn export<P: DiscordPort>(
     today: &str,
 ) -> Result<ExportOutput, ServiceError> {
     let id = guilds::resolve(app, guild).await?;
-    let snapshot = app.port.snapshot(id).await?;
+    let snapshot = app.snapshot(id).await?;
     let (spec, notes) = to_spec(&snapshot);
     let header = Header {
         version: env!("CARGO_PKG_VERSION"),

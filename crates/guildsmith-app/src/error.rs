@@ -3,7 +3,7 @@
 
 use guildsmith_core::Id;
 
-use crate::policy::Refusal;
+use crate::policy::{Refusal, RefusalKind};
 use crate::ports::PortError;
 use crate::resolve::Candidate;
 
@@ -13,7 +13,7 @@ pub enum ServiceError {
     #[error("{0}")]
     Refused(Refusal),
     #[error("{0}")]
-    Port(#[from] PortError),
+    Port(PortError),
     #[error("no {what} matches `{input}`{}", hint_suggestions(.suggestions))]
     NotFound { what: &'static str, input: String, suggestions: Vec<String> },
     #[error("`{input}` matches more than one {what}: {}", list_candidates(.candidates))]
@@ -36,6 +36,20 @@ fn list_candidates(c: &[Candidate]) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+impl From<PortError> for ServiceError {
+    /// A token that isn't a bot's is refused like a policy rule (FR-022, exit code 3).
+    fn from(e: PortError) -> Self {
+        match e {
+            PortError::NotBotToken => ServiceError::Refused(Refusal::new(
+                RefusalKind::NotBotToken,
+                "not a bot token: this token does not belong to a bot application; nothing was done",
+                Some("create a bot in the Discord developer portal and use its token (only bot tokens are supported)"),
+            )),
+            other => ServiceError::Port(other),
+        }
+    }
 }
 
 impl From<Refusal> for ServiceError {

@@ -1,9 +1,13 @@
 //! The command line (contracts/cli.md). Every command calls the same `guildsmith-app`
 //! services as the matching MCP tool.
 
+pub mod apply;
+pub mod auth;
+pub mod doctor;
 pub mod export;
 pub mod guilds;
 pub mod mcp;
+pub mod plan;
 pub mod schema;
 pub mod validate;
 
@@ -62,6 +66,14 @@ pub enum Command {
     Export(export::ExportArgs),
     /// Check a spec file offline.
     Validate(validate::ValidateArgs),
+    /// Show what applying a spec file would change, with its plan hash.
+    Plan(plan::PlanArgs),
+    /// Apply a reviewed plan for a spec file.
+    Apply(apply::ApplyArgs),
+    /// Check the token, allowlist, the bot's permissions and role order.
+    Doctor,
+    /// Store, remove or check the bot token in the OS keyring.
+    Auth(auth::AuthArgs),
     /// Print the JSON Schema for spec files.
     Schema(schema::SchemaArgs),
 }

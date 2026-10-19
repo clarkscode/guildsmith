@@ -4,7 +4,7 @@
 //! - stripped release binary < 10 MB;
 //! - tool descriptions ≤ 3,000 tokens and the full `tools/list` ≤ 9,000 tokens, estimated as
 //!   UTF-8 bytes ÷ 3.5;
-//! - the default toolset has ≤ 25 tools.
+//! - the default toolset is exactly the 21 `core` tools, and `core,moderation` stays ≤ 25.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -20,6 +20,8 @@ const SIZE_BUDGET: u64 = 10 * 1024 * 1024;
 const DESC_TOKENS: f64 = 3_000.0;
 const LIST_TOKENS: f64 = 9_000.0;
 const MAX_TOOLS: usize = 25;
+/// The `core` toolset (contracts/mcp-tools.md).
+const CORE_TOOLS: usize = 21;
 
 fn tokens(bytes: usize) -> f64 {
     #[allow(clippy::cast_precision_loss)] // byte counts are far below 2^52
@@ -109,7 +111,8 @@ pub fn run(args: &[String]) -> Result<()> {
         failures.push(format!("binary is {size} bytes ≥ {SIZE_BUDGET}"));
     }
 
-    for (label, toolsets, check_count) in [("default", None, true), ("core,moderation", Some("core,moderation"), true)]
+    for (label, toolsets, exact) in
+        [("default", None, Some(CORE_TOOLS)), ("core,moderation", Some("core,moderation"), None)]
     {
         let list = if toolsets.is_some() { one_run(&bin, toolsets)?.1 } else { list.clone() };
         let tools = list["tools"].as_array().cloned().unwrap_or_default();
@@ -117,8 +120,13 @@ pub fn run(args: &[String]) -> Result<()> {
         let list_bytes = serde_json::to_vec(&list)?.len();
         let (d, l) = (tokens(desc_bytes), tokens(list_bytes));
         println!("{label}: {} tools, descriptions ≈ {d:.0} tokens, tools/list ≈ {l:.0} tokens", tools.len());
-        if check_count && tools.len() > MAX_TOOLS {
+        if tools.len() > MAX_TOOLS {
             failures.push(format!("{label}: {} tools > {MAX_TOOLS}", tools.len()));
+        }
+        if let Some(n) = exact
+            && tools.len() != n
+        {
+            failures.push(format!("{label}: {} tools, expected exactly {n}", tools.len()));
         }
         if d > DESC_TOKENS {
             failures.push(format!("{label}: descriptions ≈ {d:.0} tokens > {DESC_TOKENS}"));

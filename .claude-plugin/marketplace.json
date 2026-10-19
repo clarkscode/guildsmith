@@ -1,0 +1,11 @@
+{
+  "name": "guildsmith",
+  "owner": { "name": "clarkscode" },
+  "plugins": [
+    {
+      "name": "guildsmith",
+      "source": "./plugins/claude-code",
+      "description": "Manage Discord servers from Claude Code: export, plan and apply server structure, plus day-to-day admin tools."
+    }
+  ]
+}

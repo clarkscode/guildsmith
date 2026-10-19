@@ -1,0 +1,31 @@
+# Opt-in live tests (quickstart §1–§7) against the dedicated Discord test server.
+# The secrets belong to a server created only for this; the destructive tests reset it.
+name: Nightly live tests
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    environment: live-test-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Live tests
+        env:
+          GUILDSMITH_LIVE_TEST: "1"
+          GUILDSMITH_LIVE_DESTRUCTIVE: "1"
+          DISCORD_TOKEN: ${{ secrets.LIVE_DISCORD_TOKEN }}
+          GUILDSMITH_GUILDS: ${{ secrets.LIVE_GUILD_ID }}
+        run: cargo test -p guildsmith --test live -- --test-threads=1

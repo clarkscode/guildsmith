@@ -14,16 +14,3 @@ pub(crate) fn live(o: &PermissionOverwrite) -> Option<LiveOverwrite> {
     };
     Some(LiveOverwrite { id: ids::from(o.id), kind, allow: super::perms(o.allow), deny: super::perms(o.deny) })
 }
-
-#[allow(dead_code)] // used by the write path (US2)
-pub(crate) fn to_twilight(o: &LiveOverwrite) -> guildsmith_app::ports::PortResult<PermissionOverwrite> {
-    Ok(PermissionOverwrite {
-        id: ids::generic(o.id)?,
-        kind: match o.kind {
-            OverwriteKind::Role => PermissionOverwriteType::Role,
-            OverwriteKind::Member => PermissionOverwriteType::Member,
-        },
-        allow: super::to_perms(o.allow),
-        deny: super::to_perms(o.deny),
-    })
-}
