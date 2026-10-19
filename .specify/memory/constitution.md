@@ -1,21 +1,3 @@
-<!--
-Sync Impact Report
-- Version change: (template, unversioned) → 1.0.0
-- Modified principles: none (initial adoption)
-- Added principles:
-  I. Safe by Default
-  II. Pure Core, Thin Adapters
-  III. Plans Converge
-  IV. Lean Agent Interface
-  V. Tested Without the Network
-  VI. Performance Budget
-- Added sections: Scope & Technology Constraints; Development Workflow & Quality Gates; Governance
-- Removed sections: none
-- Templates: none modified (plan/spec/tasks templates read this file at runtime)
-- Deferred TODOs: none. MSRV is left to PLAN.md §11 Q4 and is not fixed here.
-- Remove this comment before committing the constitution.
--->
-
 # guildsmith Constitution
 
 ## Core Principles

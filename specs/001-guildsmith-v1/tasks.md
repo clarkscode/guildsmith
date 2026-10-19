@@ -432,11 +432,11 @@ and Windows.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T100 [P] Write `docs/architecture.md` (layers, dependency direction, ports, where policy lives), `docs/tools.md` (every tool, its annotations, the permissions it needs) and `docs/spec-reference.md` (from contracts/spec-format.md and data-model §1).
-- [ ] T101 [P] Add opt-in live tests for quickstart §1–§7 (`GUILDSMITH_LIVE_TEST=1`) in `tests/live/{export,apply,policy,preflight,hidden_channel,agent}.rs`, and `.github/workflows/nightly-live.yml` with the test-server secrets.
-- [ ] T102 Run `cargo xtask budgets` on the release build and record the cold start, binary size and token figures in `specs/001-guildsmith-v1/checklists/acceptance.md` (SC-003, SC-004, SC-005).
+- [X] T100 [P] Write `docs/architecture.md` (layers, dependency direction, ports, where policy lives), `docs/tools.md` (every tool, its annotations, the permissions it needs) and `docs/spec-reference.md` (from contracts/spec-format.md and data-model §1).
+- [X] T101 [P] Add opt-in live tests for quickstart §1–§7 (`GUILDSMITH_LIVE_TEST=1`) in `tests/live/{export,apply,policy,preflight,hidden_channel,agent}.rs`, and `.github/workflows/nightly-live.yml` with the test-server secrets.
+- [X] T102 Run `cargo xtask budgets` on the release build and record the cold start, binary size and token figures in `specs/001-guildsmith-v1/checklists/acceptance.md` (SC-003, SC-004, SC-005).
 - [ ] T103 Run every scenario in `specs/001-guildsmith-v1/quickstart.md` §0–§9 and record the results, including the under-10-minutes install-to-first-plan timing (SC-010), in `specs/001-guildsmith-v1/checklists/acceptance.md`.
-- [ ] T104 Remove the Sync Impact Report HTML comment from the top of `.specify/memory/constitution.md` before the first release commit; the comment itself says to.
+- [X] T104 Remove the Sync Impact Report HTML comment from the top of `.specify/memory/constitution.md` before the first release commit; the comment itself says to.
 
 ---
 

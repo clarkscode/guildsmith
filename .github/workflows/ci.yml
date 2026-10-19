@@ -53,20 +53,28 @@ jobs:
 
   minimal-versions:
     runs-on: ubuntu-latest
+    env:
+      # Checks that the declared floors resolve and build; new nightly lints aren't the point.
+      RUSTFLAGS: ""
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo update -Z direct-minimal-versions
-      - run: cargo check --workspace --all-features
+      # `+nightly`: rust-toolchain.toml would otherwise select stable, which rejects `-Z`.
+      - run: cargo +nightly update -Z direct-minimal-versions
+      - run: cargo +nightly check --workspace --all-features
 
   supply-chain:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
-      - uses: rustsec/audit-check@v2
+      # cargo-audit runs on the runner: the audit-check action's container can't install the
+      # toolchain rust-toolchain.toml asks for.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          tool: cargo-audit
+      - run: cargo audit
 
   budgets:
     runs-on: ubuntu-latest

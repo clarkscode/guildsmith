@@ -6,6 +6,14 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+    # Informational: these crates were merged into zbus 6.0. We only get them through
+    # keyring 4's Linux secret-service store (keyring → secret-service → zbus 5); there is no
+    # patched version. Drop these once keyring's store moves to zbus 6.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant merged into zbus 6; pulled in by keyring's zbus 5 store" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names merged into zbus 6; pulled in by keyring's zbus 5 store" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive merged into zbus 6; pulled in by keyring's zbus 5 store" },
+]
 
 [licenses]
 version = 2

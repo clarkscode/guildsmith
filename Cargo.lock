@@ -1033,7 +1033,6 @@ dependencies = [
 name = "guildsmith"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "guildsmith-app",
  "guildsmith-core",

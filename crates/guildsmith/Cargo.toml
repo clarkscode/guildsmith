@@ -30,7 +30,6 @@ guildsmith-app.workspace = true
 guildsmith-discord.workspace = true
 guildsmith-mcp.workspace = true
 clap.workspace = true
-anyhow.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
