@@ -1,6 +1,6 @@
 {
   "name": "@guildsmith/linux-x64",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The guildsmith binary for Linux x64 (static musl build; runs on glibc and musl).",
   "license": "MIT OR Apache-2.0",
   "repository": {

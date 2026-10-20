@@ -1,6 +1,6 @@
 {
   "name": "guildsmith",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Manage Discord servers from Codex: moderation, channels, roles, events, automod and more, plus the whole server as code (export, plan, apply). Safe by default.",
   "author": {
     "name": "clarkscode"

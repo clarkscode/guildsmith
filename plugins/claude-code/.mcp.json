@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "guildsmith@0.1.1",
+        "guildsmith@0.1.2",
         "mcp"
       ],
       "env": {

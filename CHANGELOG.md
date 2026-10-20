@@ -5,6 +5,16 @@ All notable changes to guildsmith are listed here. The format follows
 [Semantic Versioning](https://semver.org/). Changes to the default tool set, the spec file
 format or the safety policy are always called out.
 
+## 0.1.2
+
+### Fixed
+
+- Replace the oversized crates.io keyword with `iac` so the main package can be published.
+
+### Added
+
+- Validate crate keywords in release checks and CI before publication.
+
 ## 0.1.1
 
 ### Fixed

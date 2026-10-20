@@ -1100,7 +1100,7 @@ dependencies = [
 
 [[package]]
 name = "guildsmith"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "clap",
  "guildsmith-app",
@@ -1120,7 +1120,7 @@ dependencies = [
 
 [[package]]
 name = "guildsmith-app"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.23.1",
  "guildsmith-app",
@@ -1142,7 +1142,7 @@ dependencies = [
 
 [[package]]
 name = "guildsmith-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.23.1",
  "blake3",
@@ -1159,7 +1159,7 @@ dependencies = [
 
 [[package]]
 name = "guildsmith-discord"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.23.1",
  "guildsmith-app",
@@ -1183,7 +1183,7 @@ dependencies = [
 
 [[package]]
 name = "guildsmith-mcp"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "guildsmith-app",
  "guildsmith-core",

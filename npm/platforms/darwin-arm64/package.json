@@ -1,6 +1,6 @@
 {
   "name": "@guildsmith/darwin-arm64",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The guildsmith binary for macOS arm64 (Apple silicon).",
   "license": "MIT OR Apache-2.0",
   "repository": {

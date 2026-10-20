@@ -1,6 +1,6 @@
 {
   "name": "guildsmith",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Fast MCP server and CLI for building and managing Discord servers.",
   "license": "MIT OR Apache-2.0",
   "repository": {
@@ -26,10 +26,10 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@guildsmith/darwin-arm64": "0.1.1",
-    "@guildsmith/darwin-x64": "0.1.1",
-    "@guildsmith/linux-arm64": "0.1.1",
-    "@guildsmith/linux-x64": "0.1.1",
-    "@guildsmith/win32-x64": "0.1.1"
+    "@guildsmith/darwin-arm64": "0.1.2",
+    "@guildsmith/darwin-x64": "0.1.2",
+    "@guildsmith/linux-arm64": "0.1.2",
+    "@guildsmith/linux-x64": "0.1.2",
+    "@guildsmith/win32-x64": "0.1.2"
   }
 }
