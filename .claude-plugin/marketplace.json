@@ -5,7 +5,7 @@
     {
       "name": "guildsmith",
       "source": "./plugins/claude-code",
-      "description": "Manage Discord servers from Claude Code: export, plan and apply server structure, plus day-to-day admin tools."
+      "description": "Manage Discord servers from Claude Code: moderation, channels, roles, events, automod and more, plus the whole server as code (export, plan, apply). Safe by default."
     }
   ]
 }

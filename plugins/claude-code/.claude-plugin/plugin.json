@@ -1,12 +1,12 @@
 {
   "name": "guildsmith",
   "version": "0.1.0",
-  "description": "Manage Discord servers from Claude Code: export, plan and apply server structure, plus day-to-day admin tools.",
+  "description": "Manage Discord servers from Claude Code: moderation, channels, roles, events, automod and more, plus the whole server as code (export, plan, apply). Safe by default.",
   "author": { "name": "clarkscode" },
   "license": "MIT OR Apache-2.0",
   "repository": "https://github.com/clarkscode/guildsmith",
   "homepage": "https://github.com/clarkscode/guildsmith",
-  "keywords": ["discord", "mcp", "infrastructure-as-code"],
+  "keywords": ["discord", "mcp", "moderation", "discord-bot", "infrastructure-as-code"],
   "userConfig": {
     "discord_token": {
       "type": "string",
