@@ -18,17 +18,24 @@ fn app(snapshot: guildsmith_core::snapshot::Snapshot) -> App<FakeDiscord> {
 #[tokio::test]
 async fn export_matches_snapshot() {
     let out = export::export(&app(fixtures::rich()), Some("1000"), TODAY).await.unwrap();
-    insta::assert_snapshot!("rich_export", out.toml);
+    // Keep the snapshot stable across releases; the header test checks the real version.
+    let toml = out.toml.replacen(
+        &format!("# Exported by guildsmith {} from ", env!("CARGO_PKG_VERSION")),
+        "# Exported by guildsmith <VERSION> from ",
+        1,
+    );
+    insta::assert_snapshot!("rich_export", toml);
 }
 
 #[tokio::test]
 async fn header_order_comments_and_round_trip() {
     let out = export::export(&app(fixtures::rich()), Some("1000"), TODAY).await.unwrap();
     let t = &out.toml;
-    assert!(t.starts_with(
+    assert!(t.starts_with(&format!(
         "#:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json\n\
-         # Exported by guildsmith "
-    ));
+         # Exported by guildsmith {} from \"Guildsmith Lab\" (1000) on {TODAY}.\n",
+        env!("CARGO_PKG_VERSION")
+    )));
     // Roles highest first, @everyone last.
     let pos = |needle: &str| t.find(needle).unwrap_or_else(|| panic!("missing {needle}"));
     assert!(pos("name = \"Moderator\"") < pos("name = \"Member\""));

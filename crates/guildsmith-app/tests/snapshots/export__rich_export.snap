@@ -1,9 +1,9 @@
 ---
 source: crates/guildsmith-app/tests/export.rs
-expression: out.toml
+expression: toml
 ---
 #:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json
-# Exported by guildsmith 0.1.0 from "Guildsmith Lab" (1000) on 2026-10-19.
+# Exported by guildsmith <VERSION> from "Guildsmith Lab" (1000) on 2026-10-19.
 
 [guild]
 id = "1000"
