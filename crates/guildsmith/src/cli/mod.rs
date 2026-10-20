@@ -5,10 +5,12 @@ pub mod apply;
 pub mod auth;
 pub mod doctor;
 pub mod export;
+pub mod groups;
 pub mod guilds;
 pub mod mcp;
 pub mod plan;
 pub mod schema;
+pub mod toolsets;
 pub mod validate;
 
 use std::path::PathBuf;
@@ -76,6 +78,13 @@ pub enum Command {
     Auth(auth::AuthArgs),
     /// Print the JSON Schema for spec files.
     Schema(schema::SchemaArgs),
+    /// List every tool group: tool count, approximate tokens, permissions, registered or blocked.
+    Toolsets,
+    /// Any tool by group: `guildsmith <group> <tool> [--flags]`, e.g. `guildsmith moderation ban
+    /// --members @a,@b`. Groups: moderation, messages, threads, polls, events, invites, voice,
+    /// automod, webhooks, expressions, settings, raw (and core).
+    #[command(external_subcommand)]
+    Group(Vec<String>),
 }
 
 /// Exit codes (contracts/cli.md).

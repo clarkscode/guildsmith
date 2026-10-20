@@ -2,7 +2,16 @@
 //!
 //! An attribute set to `None` is *not managed*: the planner leaves the live value unchanged.
 
+pub mod automod;
+pub mod events;
+pub mod expressions;
+pub mod invites;
+pub mod messages;
+pub mod onboarding;
+pub mod settings;
 mod source;
+pub mod webhooks;
+pub mod welcome;
 pub mod writer;
 
 use std::fmt;
@@ -13,6 +22,15 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::id::Id;
 use crate::permissions::PermissionSet;
+use automod::AutomodRule;
+use events::EventSpec;
+use expressions::{EmojiSpec, SoundSpec, StickerSpec};
+use invites::InviteSpec;
+use messages::FixedMessageSpec;
+use onboarding::OnboardingSpec;
+use settings::SettingsSpec;
+use webhooks::WebhookSpec;
+use welcome::WelcomeScreenSpec;
 
 pub use source::{Location, ParseError, PathSeg, SpecPath, SpecSource, parse};
 
@@ -43,12 +61,38 @@ pub struct GuildSpec {
     /// Top-level channels with no category.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub channels: Vec<ChannelSpec>,
+    /// Auto-moderation rules. Channels are `#name`, roles `@Name` (or ids).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub automod: Vec<AutomodRule<String>>,
+    /// Questions and default channels for new members (Community servers).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub onboarding: Option<OnboardingSpec>,
+    /// The welcome screen (Community servers).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub welcome_screen: Option<WelcomeScreenSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub emoji: Vec<EmojiSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stickers: Vec<StickerSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sounds: Vec<SoundSpec>,
+    /// Incoming webhooks: never a token or URL.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub webhooks: Vec<WebhookSpec>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invites: Vec<InviteSpec>,
+    /// Scheduled events.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub events: Vec<EventSpec>,
+    /// Fixed messages the bot posts, such as a rules post.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub messages: Vec<FixedMessageSpec>,
     /// Which unmanaged kinds may be deleted. Every flag defaults to `false`.
     #[serde(default)]
     pub prune: PruneSpec,
 }
 
-/// `[guild]`: informational unless `manage_settings = true` (rejected in v1).
+/// `[guild]`: informational unless `manage_settings = true`, which turns on `[guild.settings]`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GuildInfo {
@@ -56,9 +100,12 @@ pub struct GuildInfo {
     pub id: Option<Id>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
-    /// Reserved. v1 rejects `true` (research R21).
+    /// Turns on `[guild.settings]`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub manage_settings: bool,
+    /// Server settings, used only when `manage_settings = true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<SettingsSpec>,
 }
 
 /// `[[roles]]`.
@@ -338,6 +385,7 @@ impl JsonSchema for Color {
 }
 
 /// `[prune]`: which unmanaged kinds may be deleted.
+#[allow(clippy::struct_excessive_bools)] // one switch per kind
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PruneSpec {
@@ -347,6 +395,22 @@ pub struct PruneSpec {
     pub categories: bool,
     #[serde(default)]
     pub channels: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub automod: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub emoji: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub stickers: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub sounds: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub webhooks: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub invites: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub events: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub messages: bool,
 }
 
 impl GuildSpec {

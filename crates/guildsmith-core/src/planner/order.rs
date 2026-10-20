@@ -5,9 +5,14 @@
 //! 3. Category creates and updates.
 //! 4. Channel creates and updates, each with its own `parent_id`.
 //! 5. One channel reorder (positions only).
-//! 6. Deletes: channels, then categories, then roles.
+//! 6. Server settings, which may refer to channels.
+//! 7. Expressions, webhooks, automod, onboarding and the welcome screen, events, invites,
+//!    fixed messages and pins (data-model §5).
+//! 8. Deletes, in reverse dependency order: messages, invites, events, automod, webhooks,
+//!    expressions, then channels, categories and roles.
 //!
-//! Within a phase, ops keep the spec's file order.
+//! Within a phase, ops keep the spec's file order. Ids written back to the file come last, and
+//! aren't ops (they change only the local file).
 
 use super::ops::Op;
 
@@ -19,6 +24,20 @@ pub enum Phase {
     Categories,
     Channels,
     ChannelOrder,
+    Settings,
+    Expressions,
+    Webhooks,
+    Automod,
+    Onboarding,
+    Events,
+    Invites,
+    Messages,
+    DeleteMessages,
+    DeleteInvites,
+    DeleteEvents,
+    DeleteAutomod,
+    DeleteWebhooks,
+    DeleteExpressions,
     DeleteChannels,
     DeleteCategories,
     DeleteRoles,

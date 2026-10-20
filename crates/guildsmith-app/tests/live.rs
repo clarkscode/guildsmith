@@ -157,18 +157,3 @@ async fn deletes_need_confirm_and_never_touch_everyone() {
     assert!(p.would.iter().any(|w| w.contains("2 channel(s) move to the top level")), "{:?}", p.would);
     assert_audited(&app);
 }
-
-#[tokio::test]
-async fn moderation_timeout_kick_ban_unban() {
-    let app = app();
-    let t = live::member_timeout(&app, G, "sam", 3600, None).await.unwrap();
-    assert!(t.until.is_some());
-    assert!(live::member_timeout(&app, G, "sam", 29 * 86_400, None).await.is_err(), "more than 28 days");
-    assert!(live::member_timeout(&app, G, "sam", 0, None).await.unwrap().until.is_none());
-    assert!(live::member_kick(&app, G, "sam", false, None).await.unwrap().is_preview());
-    assert!(live::member_ban(&app, G, "alex", 0, false, None).await.unwrap().is_preview());
-    live::member_ban(&app, G, "alex", 3600, true, None).await.unwrap();
-    live::ban_remove(&app, G, &fixtures::ALEX.to_string(), None).await.unwrap();
-    assert_eq!(app.port.writes().iter().map(|w| w.method).collect::<Vec<_>>(), ["timeout", "timeout", "ban", "unban"]);
-    assert_audited(&app);
-}

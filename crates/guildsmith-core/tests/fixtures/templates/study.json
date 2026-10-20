@@ -1,0 +1,41 @@
+{
+  "code": "2TfF7a6xQFwT",
+  "name": "Study Group",
+  "description": "Get together with classmates to share notes and study.",
+  "usage_count": 98012,
+  "creator_id": "132196734597234688",
+  "creator": {"id": "132196734597234688", "username": "discord", "avatar": null, "discriminator": "0"},
+  "created_at": "2020-09-30T16:47:01+00:00",
+  "updated_at": "2023-02-17T20:24:00+00:00",
+  "source_guild_id": "760974155950948404",
+  "serialized_source_guild": {
+    "name": "Study Group",
+    "description": null,
+    "region": "us-east",
+    "verification_level": 1,
+    "default_message_notifications": 1,
+    "explicit_content_filter": 2,
+    "preferred_locale": "en-US",
+    "afk_timeout": 900,
+    "roles": [
+      {"id": 0, "name": "@everyone", "color": 0, "hoist": false, "mentionable": false, "permissions": "6546775617"},
+      {"id": 1, "name": "Tutors", "color": 1752220, "hoist": true, "mentionable": true, "permissions": "8192"}
+    ],
+    "channels": [
+      {"id": 10, "type": 4, "name": "Information", "position": 0, "parent_id": null, "permission_overwrites": [{"id": 0, "type": 0, "allow": "1024", "deny": "2048"}]},
+      {"id": 11, "type": 0, "name": "welcome-and-rules", "position": 0, "topic": "Read me first", "parent_id": 10, "permission_overwrites": [{"id": 0, "type": 0, "allow": "1024", "deny": "2048"}]},
+      {"id": 12, "type": 0, "name": "notes-resources", "position": 1, "parent_id": 10, "permission_overwrites": [{"id": 0, "type": 0, "allow": "1024", "deny": "2048"}]},
+      {"id": 13, "type": 4, "name": "Study", "position": 1, "parent_id": null, "permission_overwrites": []},
+      {"id": 14, "type": 0, "name": "homework-help", "position": 0, "parent_id": 13, "permission_overwrites": []},
+      {"id": 15, "type": 15, "name": "questions", "position": 1, "topic": "Ask one question per post", "parent_id": 13, "permission_overwrites": [],
+       "available_tags": [{"id": null, "name": "math", "emoji_id": null, "emoji_name": "🧮", "moderated": false}, {"id": null, "name": "answered", "emoji_id": null, "emoji_name": "✅", "moderated": true}],
+       "default_reaction_emoji": {"emoji_id": null, "emoji_name": "👍"}},
+      {"id": 16, "type": 2, "name": "Study Room 1", "position": 2, "bitrate": 64000, "user_limit": 10, "parent_id": 13, "permission_overwrites": []},
+      {"id": 17, "type": 2, "name": "Lounge", "position": 2, "bitrate": 64000, "user_limit": 0, "parent_id": null, "permission_overwrites": []}
+    ],
+    "afk_channel_id": 17,
+    "system_channel_id": 11,
+    "system_channel_flags": 0
+  },
+  "is_dirty": false
+}

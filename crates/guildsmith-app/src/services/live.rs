@@ -17,7 +17,6 @@ use serde::Serialize;
 
 use crate::App;
 use crate::confirm::{self, Outcome};
-use crate::date;
 use crate::error::ServiceError;
 use crate::policy::audit_reason;
 use crate::ports::{ChannelFields, ChannelPosition, DiscordPort, Member, Message, RoleFields};
@@ -43,12 +42,12 @@ pub struct Deleted {
     pub deleted: String,
 }
 
-fn invalid(msg: impl Into<String>) -> ServiceError {
+pub(crate) fn invalid(msg: impl Into<String>) -> ServiceError {
     ServiceError::Invalid(msg.into())
 }
 
 /// Turns a name resolution into an id, or a not-found / ambiguous error.
-fn resolved(r: Resolution, what: &'static str, input: &str) -> Result<Id, ServiceError> {
+pub(crate) fn resolved(r: Resolution, what: &'static str, input: &str) -> Result<Id, ServiceError> {
     match r {
         Resolution::Resolved(id) => Ok(id),
         Resolution::Ambiguous(candidates) => Err(ServiceError::Ambiguous { what, input: input.to_owned(), candidates }),
@@ -59,23 +58,26 @@ fn resolved(r: Resolution, what: &'static str, input: &str) -> Result<Id, Servic
 }
 
 /// The server id and a (possibly cached) snapshot.
-async fn server<P: DiscordPort>(app: &App<P>, guild: Option<&str>) -> Result<(Id, Snapshot), ServiceError> {
+pub(crate) async fn server<P: DiscordPort>(app: &App<P>, guild: Option<&str>) -> Result<(Id, Snapshot), ServiceError> {
     let id = guilds::resolve(app, guild).await?;
     Ok((id, app.snapshot(id).await?))
 }
 
 /// Server for a write: read-only mode refuses before any request.
-async fn writable<P: DiscordPort>(app: &App<P>, guild: Option<&str>) -> Result<(Id, Snapshot), ServiceError> {
+pub(crate) async fn writable<P: DiscordPort>(
+    app: &App<P>,
+    guild: Option<&str>,
+) -> Result<(Id, Snapshot), ServiceError> {
     app.policy.ensure_writable()?;
     server(app, guild).await
 }
 
-fn refuse_if(problems: &[PreflightProblem]) -> Result<(), ServiceError> {
+pub(crate) fn refuse_if(problems: &[PreflightProblem]) -> Result<(), ServiceError> {
     if problems.is_empty() { Ok(()) } else { Err(preflight_refusal(problems).into()) }
 }
 
 /// The bot's permissions for `tool`, plus role order for `role` when given.
-fn require(s: &Snapshot, tool: &str, role: Option<Id>) -> Result<(), ServiceError> {
+pub(crate) fn require(s: &Snapshot, tool: &str, role: Option<Id>) -> Result<(), ServiceError> {
     let mut problems = preflight::check_tools(s, [tool]);
     if let Some(r) = role {
         problems.extend(preflight::check_role_edit(s, r));
@@ -83,7 +85,7 @@ fn require(s: &Snapshot, tool: &str, role: Option<Id>) -> Result<(), ServiceErro
     refuse_if(&problems)
 }
 
-fn parse_perms(names: &[String]) -> Result<PermissionSet, ServiceError> {
+pub(crate) fn parse_perms(names: &[String]) -> Result<PermissionSet, ServiceError> {
     let mut bits = 0;
     for n in names {
         bits |= PermissionSet::parse_name(n).map_err(|_| {
@@ -95,7 +97,7 @@ fn parse_perms(names: &[String]) -> Result<PermissionSet, ServiceError> {
     Ok(PermissionSet::from_bits(bits))
 }
 
-fn role_name(s: &Snapshot, id: Id) -> String {
+pub(crate) fn role_name(s: &Snapshot, id: Id) -> String {
     if id == s.guild.id {
         "@everyone".to_owned()
     } else {
@@ -296,7 +298,7 @@ fn parse_parent(s: &Snapshot, parent: Option<&str>) -> Result<Option<Option<Id>>
     Ok(Some(Some(id)))
 }
 
-fn channel_label(c: &LiveChannel) -> String {
+pub(crate) fn channel_label(c: &LiveChannel) -> String {
     match c.kind {
         LiveChannelKind::Category => format!("category {}", c.name),
         LiveChannelKind::Known(k) if k.is_text_like() => format!("#{}", c.name),
@@ -643,13 +645,13 @@ pub struct MemberRow {
     pub roles: Vec<String>,
 }
 
-fn member_row(s: &Snapshot, m: &Member) -> MemberRow {
+pub(crate) fn member_row(s: &Snapshot, m: &Member) -> MemberRow {
     let name = m.nick.clone().or_else(|| m.display_name.clone()).unwrap_or_else(|| m.username.clone());
     MemberRow { id: m.id, name, roles: m.role_ids.iter().map(|r| role_name(s, *r)).collect() }
 }
 
 /// Finds a member by mention, id, username, display name or nickname.
-async fn find_member<P: DiscordPort>(app: &App<P>, gid: Id, input: &str) -> Result<Member, ServiceError> {
+pub(crate) async fn find_member<P: DiscordPort>(app: &App<P>, gid: Id, input: &str) -> Result<Member, ServiceError> {
     let raw = input.trim();
     let bare = raw.trim_start_matches("<@!").trim_start_matches("<@").trim_end_matches('>');
     if let Ok(id) = bare.parse::<Id>() {
@@ -744,7 +746,7 @@ pub struct MessageRow {
 pub const READ_DEFAULT: u8 = 20;
 pub const READ_MAX: u8 = 100;
 
-fn text_channel(s: &Snapshot, channel: &str) -> Result<Id, ServiceError> {
+pub(crate) fn text_channel(s: &Snapshot, channel: &str) -> Result<Id, ServiceError> {
     let id = resolved(resolve::resolve_channel(s, channel), "channel", channel)?;
     match s.channel(id).map(|c| c.kind) {
         Some(LiveChannelKind::Known(k)) if !k.is_forum_like() => Ok(id),
@@ -795,108 +797,4 @@ pub fn message_rows(messages: &[Message]) -> Vec<MessageRow> {
             ts: m.timestamp.clone(),
         })
         .collect()
-}
-
-// ---- moderation ------------------------------------------------------------------------------
-
-/// The longest timeout Discord allows.
-pub const MAX_TIMEOUT_SECS: u64 = 28 * 24 * 60 * 60;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct TimedOut {
-    pub member: Id,
-    /// RFC 3339, or `null` when the timeout was cleared.
-    pub until: Option<String>,
-}
-
-/// Times a member out for `seconds` (≤ 28 days); `0` clears it.
-pub async fn member_timeout<P: DiscordPort>(
-    app: &App<P>,
-    guild: Option<&str>,
-    member: &str,
-    seconds: u64,
-    reason: Option<&str>,
-) -> Result<TimedOut, ServiceError> {
-    if seconds > MAX_TIMEOUT_SECS {
-        return Err(invalid("a timeout can be at most 28 days (2419200 seconds)"));
-    }
-    let (gid, s) = writable(app, guild).await?;
-    let m = find_member(app, gid, member).await?;
-    require(&s, "member_timeout", None)?;
-    let until = (seconds > 0).then(|| date::rfc3339_after(app.clock.as_ref(), seconds));
-    let summary = match &until {
-        Some(t) => format!("time out {} until {t}", m.username),
-        None => format!("clear timeout for {}", m.username),
-    };
-    app.port.timeout(gid, m.id, until.as_deref(), &audit_reason(&summary, reason)).await?;
-    Ok(TimedOut { member: m.id, until })
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct Removed {
-    pub member: Id,
-    pub action: String,
-}
-
-/// Kicks a member after confirmation.
-pub async fn member_kick<P: DiscordPort>(
-    app: &App<P>,
-    guild: Option<&str>,
-    member: &str,
-    confirmed: bool,
-    reason: Option<&str>,
-) -> Result<Outcome<Removed>, ServiceError> {
-    let (gid, s) = writable(app, guild).await?;
-    let m = find_member(app, gid, member).await?;
-    let who = format!("{} ({})", m.username, m.id);
-    confirm::guarded(confirmed, vec![format!("kick {who}; they can rejoin with an invite")], || async {
-        require(&s, "member_kick", None)?;
-        app.port.kick(gid, m.id, &audit_reason(&format!("kick {who}"), reason)).await?;
-        Ok(Removed { member: m.id, action: "kicked".to_owned() })
-    })
-    .await
-}
-
-/// Bans a user after confirmation, optionally deleting their recent messages (≤ 7 days).
-pub async fn member_ban<P: DiscordPort>(
-    app: &App<P>,
-    guild: Option<&str>,
-    member: &str,
-    delete_message_seconds: u32,
-    confirmed: bool,
-    reason: Option<&str>,
-) -> Result<Outcome<Removed>, ServiceError> {
-    if delete_message_seconds > 604_800 {
-        return Err(invalid("delete_message_seconds can be at most 604800 (7 days)"));
-    }
-    let (gid, s) = writable(app, guild).await?;
-    let m = find_member(app, gid, member).await?;
-    let who = format!("{} ({})", m.username, m.id);
-    let mut would = vec![format!("ban {who} from the server")];
-    if delete_message_seconds > 0 {
-        would.push(format!("delete their messages from the last {delete_message_seconds} seconds"));
-    }
-    confirm::guarded(confirmed, would, || async {
-        require(&s, "member_ban", None)?;
-        app.port.ban(gid, m.id, delete_message_seconds, &audit_reason(&format!("ban {who}"), reason)).await?;
-        Ok(Removed { member: m.id, action: "banned".to_owned() })
-    })
-    .await
-}
-
-/// Lifts a ban.
-pub async fn ban_remove<P: DiscordPort>(
-    app: &App<P>,
-    guild: Option<&str>,
-    user: &str,
-    reason: Option<&str>,
-) -> Result<Removed, ServiceError> {
-    let (gid, s) = writable(app, guild).await?;
-    let id: Id =
-        user.trim().trim_start_matches("<@!").trim_start_matches("<@").trim_end_matches('>').parse().map_err(|_| {
-            invalid("`user` must be a user id (banned users aren't members, so names can't be looked up)")
-        })?;
-    require(&s, "ban_remove", None)?;
-    app.port.unban(gid, id, &audit_reason(&format!("unban {id}"), reason)).await?;
-    Ok(Removed { member: id, action: "unbanned".to_owned() })
 }

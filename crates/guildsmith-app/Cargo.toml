@@ -12,8 +12,12 @@ default = []
 # In-memory DiscordPort for tests and demos.
 fake = []
 keyring = ["dep:keyring"]
+# Compare emoji/sticker images by decoded pixels instead of bytes (research E7). Off by
+# default; only for kinds the CDN re-encodes, and its size cost is measured before release use.
+pixel-compare = ["dep:image"]
 
 [dependencies]
+toml_edit.workspace = true
 guildsmith-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -22,8 +26,11 @@ toml.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 keyring = { workspace = true, optional = true }
+base64.workspace = true
+image = { workspace = true, optional = true }
 
 [dev-dependencies]
+tracing-subscriber.workspace = true
 guildsmith-app = { path = ".", features = ["fake"] }
 proptest.workspace = true
 insta.workspace = true

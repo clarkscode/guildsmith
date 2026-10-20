@@ -1,10 +1,11 @@
 //! `guildsmith plan -g <guild> <file> [--json] [--detailed-exitcode]` (FR-007, FR-012).
 
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Args;
 use guildsmith_app::App;
+use guildsmith_app::assets::Caller;
 use guildsmith_app::ports::DiscordPort;
 use guildsmith_app::services::plan;
 
@@ -31,6 +32,15 @@ pub(crate) fn read_spec(file: &PathBuf, err: &mut dyn Write) -> Option<String> {
     }
 }
 
+/// The spec file's directory: its relative file paths start there (research E7).
+#[must_use]
+pub fn spec_dir(file: &Path) -> PathBuf {
+    match file.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
+        _ => PathBuf::from("."),
+    }
+}
+
 pub async fn run<P: DiscordPort>(
     app: &App<P>,
     guild: Option<&str>,
@@ -40,7 +50,8 @@ pub async fn run<P: DiscordPort>(
     err: &mut dyn Write,
 ) -> Exit {
     let Some(text) = read_spec(&args.file, err) else { return Exit::Error };
-    let result = match plan::plan(app, guild, &text).await {
+    let dir = spec_dir(&args.file);
+    let result = match plan::plan_in(app, guild, &text, Caller::Cli { spec_dir: Some(&dir) }).await {
         Ok(p) => p,
         Err(e) => return render::service_error(err, &e),
     };

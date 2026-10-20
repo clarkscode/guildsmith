@@ -62,6 +62,8 @@ fn kinds(problems: &[PreflightProblem]) -> Vec<&'static str> {
             PreflightProblem::NotAdministrator { .. } => "NotAdministrator",
             PreflightProblem::CannotGrant { .. } => "CannotGrant",
             PreflightProblem::ManagedRoleEdit { .. } => "ManagedRoleEdit",
+            PreflightProblem::MissingIntent { .. } => "MissingIntent",
+            PreflightProblem::MissingFeature { .. } => "MissingFeature",
         })
         .collect();
     v.sort_unstable();

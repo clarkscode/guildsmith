@@ -3,6 +3,20 @@
 //! `DiscordPort` is the only way guildsmith talks to Discord. The twilight adapter and the
 //! in-memory `FakeDiscord` both implement it. Every write takes the audit-log `reason`.
 
+pub mod assets;
+pub mod automod;
+pub mod events;
+pub mod expressions;
+pub mod invites;
+pub mod messages;
+pub mod moderation;
+pub mod polls;
+pub mod raw;
+pub mod settings;
+pub mod threads;
+pub mod voice;
+pub mod webhooks;
+
 use std::future::Future;
 use std::time::SystemTime;
 
@@ -136,9 +150,49 @@ impl PortError {
 
 pub type PortResult<T> = Result<T, PortError>;
 
-/// Everything guildsmith asks of Discord.
-pub trait DiscordPort: Send + Sync {
+pub use assets::AssetPort;
+pub use automod::AutomodPort;
+pub use events::{EventFields, EventInfo, EventLocation, EventsPort};
+pub use expressions::{ExpressionEdit, ExpressionInfo, ExpressionKind, ExpressionsPort, NewExpression};
+pub use invites::{InviteInfo, InvitesPort, NewInvite};
+pub use messages::{
+    AllowedMentions, AttachmentInfo, FileData, MessageEdit, MessageInfo, MessagesPort, NewPoll, OutgoingMessage,
+    PollAnswer, PollInfo, ReactionInfo, SearchOutcome, SearchQuery, UserInfo,
+};
+pub use moderation::{AuditEntry, BanEntry, BulkBanResult, Incidents, ModerationPort};
+pub use polls::PollsPort;
+pub use raw::{RawPort, RawReply};
+pub use settings::{
+    GuildSettings, IntegrationInfo, Onboarding, OnboardingOption, OnboardingPrompt, SettingsChange, SettingsPort,
+    TemplateInfo, Vanity, WelcomeChannel, WelcomeScreen, WidgetSettings,
+};
+pub use threads::{NewThread, ThreadEdit, ThreadInfo, ThreadsPort};
+pub use voice::{StageInfo, VoicePort, VoiceStateInfo};
+pub use webhooks::{WebhookFields, WebhookInfo, WebhookKind, WebhooksPort};
+
+/// Everything guildsmith asks of Discord. Each tool group's needs are a separate port trait
+/// (in `ports/<group>.rs`); this trait requires all of them, so one bound gives a service
+/// everything.
+pub trait DiscordPort:
+    Send
+    + Sync
+    + AssetPort
+    + AutomodPort
+    + EventsPort
+    + ExpressionsPort
+    + InvitesPort
+    + MessagesPort
+    + ModerationPort
+    + PollsPort
+    + RawPort
+    + SettingsPort
+    + ThreadsPort
+    + VoicePort
+    + WebhooksPort
+{
     fn current_user(&self) -> impl Future<Output = PortResult<CurrentUser>> + Send;
+    /// The bot application's flags, which show its privileged intents.
+    fn application_flags(&self) -> impl Future<Output = PortResult<u64>> + Send;
     fn list_guilds(&self) -> impl Future<Output = PortResult<Vec<GuildSummary>>> + Send;
     fn snapshot(&self, guild: Id) -> impl Future<Output = PortResult<Snapshot>> + Send;
 

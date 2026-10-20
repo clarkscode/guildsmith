@@ -32,6 +32,12 @@ twilight-model = "0.17.1"
 # The audit-log header for raw requests, built the way twilight builds it.
 http = { version = "1.5.0", default-features = false }
 percent-encoding = "2.3.2"
+# Plain HTTPS GETs for URL assets and CDN downloads (research E7), on the same hyper/rustls
+# stack twilight already uses, so no new crates enter the tree.
+hyper = { version = "1.12.0", default-features = false, features = ["client", "http1"] }
+hyper-util = { version = "0.1.21", default-features = false, features = ["client-legacy", "http1", "tokio"] }
+hyper-rustls = { version = "0.27.10", default-features = false, features = ["http1", "ring", "tls12", "webpki-roots"] }
+http-body-util = "0.1.5"
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
 # MCP (research R3).
@@ -49,6 +55,10 @@ anyhow = "1.0.104"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 blake3 = "1.8.7"
+# Assets (research E7): data URIs, file type detection, and optional decoded-pixel comparison.
+base64 = "0.23.1"
+infer = { version = "0.22.0", default-features = false }
+image = { version = "0.25.10", default-features = false, features = ["png", "gif", "jpeg", "webp"] }
 keyring = "4.2.0"
 # Hidden prompt for `guildsmith auth set`.
 rpassword = "7.5.4"
@@ -70,9 +80,10 @@ missing_panics_doc = "allow"
 module_name_repetitions = "allow"
 
 [profile.release]
-# Size over speed: guildsmith waits on the network, not the CPU. Measured: 8.4 → 6.1 MiB, same
-# 7.7 ms cold start (constitution VI budget is < 10 MB).
-opt-level = "s"
+# Size over speed: guildsmith waits on the network, not the CPU (constitution VI budget is
+# < 10 MB). Measured v1: 8.4 → 6.1 MiB with "s", same 7.7 ms cold start. Measured 002 (84 tools):
+# 10.95 MiB with "s", 9.92 MiB with "z"; cold start 17 ms (default) / 29 ms (all groups).
+opt-level = "z"
 lto = "fat"
 codegen-units = 1
 strip = true

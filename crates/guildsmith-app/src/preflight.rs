@@ -13,7 +13,7 @@ use guildsmith_core::{Id, Permission, PermissionSet, Plan};
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::policy::Toolset;
+use crate::toolsets::Toolset;
 
 /// One thing that would make a change fail or be unsafe.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, JsonSchema)]
@@ -29,6 +29,10 @@ pub enum PreflightProblem {
     CannotGrant { perm: String, channel: String },
     /// Only a managed role's permissions can change.
     ManagedRoleEdit { role: String, field: String },
+    /// A privileged gateway intent isn't turned on for the bot's application.
+    MissingIntent { intent: String, needed_by: String },
+    /// The server lacks a feature an operation needs (e.g. `COMMUNITY`).
+    MissingFeature { feature: String, needed_by: String },
 }
 
 impl PreflightProblem {
@@ -51,6 +55,13 @@ impl PreflightProblem {
             PreflightProblem::ManagedRoleEdit { field, .. } => {
                 format!("remove `{field}` from the managed role in the spec; only permissions can change")
             }
+            PreflightProblem::MissingIntent { intent, .. } => format!(
+                "turn on the {intent} privileged intent in the Discord developer portal (your app → Bot → \
+                 Privileged Gateway Intents)"
+            ),
+            PreflightProblem::MissingFeature { feature, .. } => {
+                format!("enable {feature} for the server in Server Settings, or skip this action")
+            }
         }
     }
 }
@@ -70,6 +81,12 @@ impl fmt::Display for PreflightProblem {
             }
             PreflightProblem::ManagedRoleEdit { role, field } => {
                 write!(f, "{role} is a managed role; its {field} can't be changed")
+            }
+            PreflightProblem::MissingIntent { intent, needed_by } => {
+                write!(f, "the {intent} intent is off (needed by {needed_by})")
+            }
+            PreflightProblem::MissingFeature { feature, needed_by } => {
+                write!(f, "the server doesn't have the {feature} feature (needed by {needed_by})")
             }
         }
     }
@@ -210,7 +227,39 @@ impl Checks<'_> {
                 self.need(Permission::ManageRoles, &op.summary);
                 self.role_below_bot(*id, None);
             }
+            other => {
+                for p in kind_needs(other) {
+                    self.need(*p, &op.summary);
+                }
+            }
         }
+    }
+}
+
+/// The server permissions an op of the kinds beyond roles and channels needs.
+fn kind_needs(kind: &OpKind) -> &'static [Permission] {
+    use Permission as P;
+    match kind {
+        OpKind::UpdateSettings { .. }
+        | OpKind::CreateAutomod { .. }
+        | OpKind::UpdateAutomod { .. }
+        | OpKind::DeleteAutomod { .. }
+        | OpKind::SetWelcomeScreen { .. }
+        | OpKind::DeleteInvite { .. } => &[P::ManageGuild],
+        OpKind::SetOnboarding { .. } => &[P::ManageGuild, P::ManageRoles],
+        OpKind::CreateExpression { .. } => &[P::CreateGuildExpressions],
+        OpKind::UpdateExpression { .. } | OpKind::DeleteExpression { .. } => &[P::ManageGuildExpressions],
+        OpKind::CreateWebhook { .. } | OpKind::UpdateWebhook { .. } | OpKind::DeleteWebhook { .. } => {
+            &[P::ManageWebhooks]
+        }
+        OpKind::CreateInvite { .. } => &[P::CreateInstantInvite],
+        OpKind::CreateEvent { .. } => &[P::CreateEvents],
+        OpKind::UpdateEvent { .. } | OpKind::DeleteEvent { .. } => &[P::ManageEvents],
+        OpKind::PostMessage { pin: true, .. } => &[P::SendMessages, P::PinMessages],
+        OpKind::PostMessage { .. } => &[P::SendMessages],
+        OpKind::SetPinned { .. } => &[P::PinMessages],
+        // The bot's own messages: no permission needed to edit or delete them.
+        _ => &[],
     }
 }
 
@@ -227,7 +276,8 @@ pub fn check_plan(snapshot: &Snapshot, plan: &Plan) -> Vec<PreflightProblem> {
     c.out.into_iter().collect()
 }
 
-/// The server permissions each agent tool needs, or `None` for an unknown tool.
+/// The server permissions each agent tool needs, or `None` for an unknown tool. Needs that
+/// depend on the options used (e.g. bulk ban's `manage_guild`) are checked by the service.
 #[must_use]
 pub fn tool_needs(tool: &str) -> Option<&'static [Permission]> {
     use Permission as P;
@@ -242,50 +292,65 @@ pub fn tool_needs(tool: &str) -> Option<&'static [Permission]> {
         | "channels_tree"
         | "permissions_explain"
         | "members_find"
-        | "bot_preflight" => &[],
+        | "bot_preflight"
+        | "toolsets"
+        | "tool_call"
+        | "events_list"
+        | "event_users"
+        | "voice_state"
+        | "expressions_list"
+        | "template_import"
+        | "webhook_send"
+        | "discord_request" => &[],
         "spec_apply" => &[P::Administrator],
-        "role_upsert" | "role_delete" | "member_roles" => &[P::ManageRoles],
-        "channel_upsert" | "channel_delete" | "channels_reorder" => &[P::ManageChannels],
+        "role_upsert" | "role_delete" | "member_roles" | "roles_bulk_assign" => &[P::ManageRoles],
+        "channel_upsert" | "channel_delete" | "channels_reorder" | "forum_tags" | "invite_revoke" => {
+            &[P::ManageChannels]
+        }
         "permissions_set" => &[P::ManageChannels, P::ManageRoles],
-        "message_send" => &[P::ViewChannel, P::SendMessages],
-        "messages_read" => &[P::ViewChannel, P::ReadMessageHistory],
+        "message_send" | "message_compose" => &[P::ViewChannel, P::SendMessages],
+        "messages_read" | "pins_list" | "reactions_list" | "messages_search" | "threads_list" | "poll_results" => {
+            &[P::ViewChannel, P::ReadMessageHistory]
+        }
+        "message_edit" | "message_crosspost" | "poll_end" => &[P::ViewChannel],
+        "message_delete" => &[P::ViewChannel, P::ManageMessages],
+        "message_pin" => &[P::ViewChannel, P::PinMessages],
+        "reactions" => &[P::ViewChannel, P::ReadMessageHistory, P::AddReactions],
         "member_timeout" => &[P::ModerateMembers],
-        "member_kick" => &[P::KickMembers],
-        "member_ban" | "ban_remove" => &[P::BanMembers],
+        "member_kick" | "members_prune" => &[P::KickMembers],
+        "member_ban" | "ban_remove" | "bans_list" => &[P::BanMembers],
+        "messages_purge" => &[P::ViewChannel, P::ReadMessageHistory, P::ManageMessages],
+        "audit_log" => &[P::ViewAuditLog],
+        "raid_lockdown"
+        | "invites_list"
+        | "invite_target_users"
+        | "automod_rules_list"
+        | "automod_rule_upsert"
+        | "automod_rule_delete"
+        | "settings_get"
+        | "settings_update"
+        | "welcome_screen_update"
+        | "templates"
+        | "integration_remove" => &[P::ManageGuild],
+        "thread_create" => &[P::ViewChannel, P::CreatePublicThreads],
+        "thread_update" | "thread_delete" | "thread_members" => &[P::ManageThreads],
+        "poll_create" => &[P::ViewChannel, P::SendMessages, P::SendPolls],
+        "event_create" => &[P::CreateEvents],
+        "event_update" | "event_delete" => &[P::ManageEvents],
+        "invite_create" => &[P::CreateInstantInvite],
+        "voice_members" => &[P::MoveMembers],
+        "stage" => &[P::ManageChannels, P::MuteMembers, P::MoveMembers],
+        "voice_channel_status" => &[P::SetVoiceChannelStatus],
+        "webhook_create" | "webhooks_list" | "webhook_update" | "webhook_delete" => &[P::ManageWebhooks],
+        "expression_create" => &[P::CreateGuildExpressions],
+        "expression_update" | "expression_delete" => &[P::ManageGuildExpressions],
+        "onboarding_update" => &[P::ManageGuild, P::ManageRoles],
         _ => return None,
     })
 }
 
-/// The tools in each toolset.
-#[must_use]
-pub fn toolset_tools(t: Toolset) -> &'static [&'static str] {
-    match t {
-        Toolset::Core => &[
-            "guilds_list",
-            "guild_overview",
-            "refresh",
-            "spec_export",
-            "spec_validate",
-            "spec_plan",
-            "spec_apply",
-            "roles_list",
-            "role_upsert",
-            "role_delete",
-            "channels_tree",
-            "channel_upsert",
-            "channel_delete",
-            "channels_reorder",
-            "permissions_set",
-            "permissions_explain",
-            "members_find",
-            "member_roles",
-            "message_send",
-            "messages_read",
-            "bot_preflight",
-        ],
-        Toolset::Moderation => &["member_timeout", "member_kick", "member_ban", "ban_remove"],
-    }
-}
+/// The server feature that makes pruning need Administrator (research E4).
+pub const PRUNE_REQUIRES_ADMIN: &str = "PRUNE_REQUIRES_ADMIN";
 
 /// Missing server permissions for `tools`, one problem per permission (naming the first tool
 /// that needs it). `spec_apply`'s Administrator need is reported as `NotAdministrator`.
@@ -293,6 +358,9 @@ pub fn toolset_tools(t: Toolset) -> &'static [&'static str] {
 pub fn check_tools<'a>(snapshot: &Snapshot, tools: impl IntoIterator<Item = &'a str>) -> Vec<PreflightProblem> {
     let mut c = Checks { s: snapshot, out: BTreeSet::new() };
     for tool in tools {
+        if tool == "members_prune" && snapshot.guild.features.contains(PRUNE_REQUIRES_ADMIN) {
+            c.need(Permission::Administrator, "members_prune (this server requires Administrator to prune)");
+        }
         for perm in tool_needs(tool).unwrap_or_default() {
             if *perm == Permission::Administrator {
                 if !is_admin(snapshot) {
@@ -304,6 +372,33 @@ pub fn check_tools<'a>(snapshot: &Snapshot, tools: impl IntoIterator<Item = &'a 
         }
     }
     c.out.into_iter().collect()
+}
+
+/// Application flags that mean the `MESSAGE_CONTENT` intent is on (`GATEWAY_MESSAGE_CONTENT` and
+/// `GATEWAY_MESSAGE_CONTENT_LIMITED`).
+pub const MESSAGE_CONTENT_FLAGS: u64 = (1 << 18) | (1 << 19);
+
+/// Intents the given toolsets need that the application flags don't show as on. `flags` is
+/// `None` when they couldn't be read; then nothing is reported.
+#[must_use]
+pub fn check_intents(flags: Option<u64>, toolsets: impl IntoIterator<Item = Toolset>) -> Vec<PreflightProblem> {
+    let Some(flags) = flags else { return Vec::new() };
+    let mut out = BTreeSet::new();
+    for t in toolsets {
+        for intent in t.required_intents() {
+            let on = match *intent {
+                "MESSAGE_CONTENT" => flags & MESSAGE_CONTENT_FLAGS != 0,
+                _ => true,
+            };
+            if !on {
+                out.insert(PreflightProblem::MissingIntent {
+                    intent: (*intent).to_owned(),
+                    needed_by: format!("the {t} toolset"),
+                });
+            }
+        }
+    }
+    out.into_iter().collect()
 }
 
 /// Role-order problems: managed spec roles at or above the bot (used by `doctor`).

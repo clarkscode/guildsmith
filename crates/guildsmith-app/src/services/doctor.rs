@@ -9,6 +9,7 @@ use crate::error::ServiceError;
 use crate::ports::{DiscordPort, PortError};
 use crate::preflight::{self, PreflightProblem};
 use crate::services::{guilds, plan};
+use crate::toolsets::Toolset;
 
 /// One problem, with what it means and how to fix it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -51,7 +52,7 @@ pub async fn bot_preflight<P: DiscordPort>(
         && a != "spec_apply"
         && preflight::tool_needs(a).is_none()
     {
-        let tools: Vec<&str> = app.policy.toolsets.iter().flat_map(|t| preflight::toolset_tools(*t)).copied().collect();
+        let tools: Vec<&str> = app.toolsets.registered().iter().flat_map(|t| t.tools()).copied().collect();
         return Err(ServiceError::Invalid(format!(
             "unknown action `{a}`; use spec_apply or a tool name: {}",
             tools.join(", ")
@@ -65,16 +66,38 @@ pub async fn bot_preflight<P: DiscordPort>(
     let id = guilds::resolve(app, guild).await?;
     let snapshot = app.fresh_snapshot(id).await?;
     let problems = match (action, spec) {
-        (Some(_), Some(spec)) => preflight::check_plan(&snapshot, &plan::build(&spec, &snapshot)?),
-        (Some(name), None) => preflight::check_tools(&snapshot, [name]),
+        (Some(_), Some(spec)) => {
+            let plan = plan::build(app, id, &spec, &snapshot, crate::assets::Caller::Mcp { base: None }).await?;
+            preflight::check_plan(&snapshot, &plan)
+        }
+        (Some(name), None) => {
+            let mut p = preflight::check_tools(&snapshot, [name]);
+            if name == "messages_search" {
+                p.extend(intent_problems(app, [Toolset::Messages]).await);
+            }
+            p
+        }
         (None, _) => {
-            let tools = app.policy.toolsets.iter().flat_map(|t| preflight::toolset_tools(*t)).copied();
+            let tools = app.toolsets.registered().iter().flat_map(|t| t.tools()).copied();
             let mut all = preflight::check_tools(&snapshot, tools);
             all.extend(preflight::check_role_order(&snapshot));
+            all.extend(intent_problems(app, app.toolsets.registered().iter().copied()).await);
             all
         }
     };
     Ok(PreflightReport::from_problems(problems))
+}
+
+/// Privileged intents the groups need but the application doesn't have. Nothing is reported
+/// when the flags can't be read.
+async fn intent_problems<P: DiscordPort>(
+    app: &App<P>,
+    groups: impl IntoIterator<Item = Toolset> + Clone,
+) -> Vec<PreflightProblem> {
+    if groups.clone().into_iter().all(|t| t.required_intents().is_empty()) {
+        return Vec::new();
+    }
+    preflight::check_intents(app.port.application_flags().await.ok(), groups)
 }
 
 /// How one doctor check went.
@@ -170,8 +193,8 @@ pub async fn doctor<P: DiscordPort>(app: &App<P>, guild: Option<&str>) -> Doctor
             return report(checks);
         }
     };
-    for t in &app.policy.toolsets {
-        let mut problems = preflight::check_tools(&snapshot, preflight::toolset_tools(*t).iter().copied());
+    for t in app.toolsets.registered() {
+        let mut problems = preflight::check_tools(&snapshot, t.tools().iter().copied());
         for p in &mut problems {
             if let PreflightProblem::MissingPermission { needed_by, .. } = p {
                 *needed_by = format!("{needed_by} in the {t} toolset");
@@ -185,6 +208,18 @@ pub async fn doctor<P: DiscordPort>(app: &App<P>, guild: Option<&str>) -> Doctor
         "the bot's highest role is above every role it manages",
         preflight::check_role_order(&snapshot),
     ));
+    let needs_intents: Vec<Toolset> =
+        app.toolsets.registered().iter().copied().filter(|t| !t.required_intents().is_empty()).collect();
+    if !needs_intents.is_empty() {
+        checks.push(match app.port.application_flags().await {
+            Ok(flags) => problems_check(
+                "intents",
+                "the privileged intents the enabled toolsets need are on",
+                preflight::check_intents(Some(flags), needs_intents),
+            ),
+            Err(e) => Check::new("intents", Status::Warn, format!("couldn't read the application's intents: {e}")),
+        });
+    }
     report(checks)
 }
 

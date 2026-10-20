@@ -2,10 +2,11 @@
 
 use guildsmith_app::ports::{
     ChannelFields, ChannelPosition, CurrentUser, DiscordPort, GuildSummary, Member, Message, PortError, PortResult,
-    RoleFields, RolePosition,
+    RawPort, RawReply, RoleFields, RolePosition,
 };
 use guildsmith_app::secret::Secret;
 use guildsmith_core::Id;
+use guildsmith_core::raw::{RawMethod, RawRequest};
 use guildsmith_core::snapshot::Snapshot;
 
 use twilight_http::request::AuditLogReason;
@@ -13,7 +14,7 @@ use twilight_model::util::Timestamp;
 
 use crate::client::LazyClient;
 use crate::error::map_err;
-use crate::{ids, retry, snapshot, write};
+use crate::{ids, raw, retry, snapshot, write};
 
 /// The production `DiscordPort`. Builds its HTTP client on first use.
 pub struct TwilightDiscord {
@@ -58,9 +59,47 @@ fn message(m: &twilight_model::channel::Message) -> Message {
     }
 }
 
+impl TwilightDiscord {
+    /// The verified HTTP client (built on first use).
+    pub(crate) async fn http(&self) -> PortResult<&twilight_http::Client> {
+        Ok(&self.client.get().await?.http)
+    }
+}
+
+pub(crate) fn method(m: RawMethod) -> twilight_http::request::Method {
+    use twilight_http::request::Method;
+    match m {
+        RawMethod::Get => Method::Get,
+        RawMethod::Post => Method::Post,
+        RawMethod::Put => Method::Put,
+        RawMethod::Patch => Method::Patch,
+        RawMethod::Delete => Method::Delete,
+    }
+}
+
+impl RawPort for TwilightDiscord {
+    async fn raw_request(&self, req: &RawRequest, reason: Option<&str>) -> PortResult<RawReply> {
+        let http = self.http().await?;
+        let reason = reason.filter(|_| req.method.is_write());
+        let res = raw::send(http, method(req.method), &req.path, &req.query, req.body.as_ref(), reason).await?;
+        let mut json = res.json()?;
+        raw::redact(&mut json);
+        Ok(RawReply { status: res.status, json })
+    }
+}
+
 impl DiscordPort for TwilightDiscord {
     async fn current_user(&self) -> PortResult<CurrentUser> {
         Ok(self.client.get().await?.user.clone())
+    }
+
+    async fn application_flags(&self) -> PortResult<u64> {
+        let http = &self.client.get().await?.http;
+        let app = retry::read(|| async {
+            http.current_user_application().await.map_err(map_err)?.model().await.map_err(map_err)
+        })
+        .await?;
+        Ok(app.flags.map_or(0, |f| f.bits()))
     }
 
     async fn list_guilds(&self) -> PortResult<Vec<GuildSummary>> {

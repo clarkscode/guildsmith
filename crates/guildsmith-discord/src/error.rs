@@ -31,6 +31,12 @@ impl TwilightError for twilight_http::Error {
                 PortError::Network(self.to_string())
             }
             ErrorType::Validation => PortError::Discord { status: 400, code: None, message: self.to_string() },
+            // An error response whose body isn't Discord's JSON: twilight drops the status. In
+            // practice that's a gateway or proxy page in front of Discord (502/503/504), so it
+            // counts as a network error and reads retry it.
+            ErrorType::Parsing { body } => {
+                PortError::Network(format!("Discord returned an error with an unreadable body ({} bytes)", body.len()))
+            }
             _ => PortError::Discord { status: 0, code: None, message: format!("unexpected response: {self}") },
         }
     }

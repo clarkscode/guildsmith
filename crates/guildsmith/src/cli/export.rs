@@ -29,7 +29,21 @@ pub async fn run<P: DiscordPort>(
     out: &mut dyn Write,
     err: &mut dyn Write,
 ) -> Exit {
-    let result = match export::export(app, guild, &date::today(&SystemClock)).await {
+    // With -o, files are saved under assets/ next to the spec file; on stdout they stay urls.
+    if let Some(path) = &args.output
+        && path.exists()
+        && !args.force
+    {
+        return render::service_error(
+            err,
+            &guildsmith_app::error::ServiceError::Invalid(format!(
+                "{} already exists; refusing to overwrite it (use --force to replace it)",
+                path.display()
+            )),
+        );
+    }
+    let dir = args.output.as_deref().map(super::plan::spec_dir);
+    let result = match export::export_to(app, guild, &date::today(&SystemClock), dir.as_deref()).await {
         Ok(r) => r,
         Err(e) => return render::service_error(err, &e),
     };

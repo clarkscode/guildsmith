@@ -1,0 +1,160 @@
+#:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json
+#
+# A whole server as code: one item of every kind a spec file can hold. Files live in
+# assets/ next to this file. `guildsmith apply` writes the id of each item it creates back
+# into this file (only `id = "…"` / `code = "…"` lines are added); a new webhook's URL is
+# shown once in the apply result and never stored here.
+
+[guild]
+name = "Guildsmith Lab"
+manage_settings = true            # turns on [guild.settings]
+
+[guild.settings]
+description = "A lab for guildsmith"
+icon = { file = "assets/guild/icon.png" }
+rules_channel = "#rules"
+public_updates_channel = "#mod-log"
+system_channel = "#welcome"
+verification_level = "medium"
+explicit_content_filter = "all_members"
+afk_timeout = 300
+features = { community = true }   # onboarding and the welcome screen need Community
+
+[[roles]]
+name = "Moderator"
+color = "#3BA55D"
+hoist = true
+permissions = ["kick_members", "moderate_members", "manage_messages"]
+
+[[roles]]
+name = "Member"
+
+[[roles]]
+name = "@everyone"
+permissions = ["view_channel", "send_messages", "read_message_history", "add_reactions", "connect", "speak"]
+
+[[categories]]
+name = "Start here"
+
+  [[categories.channels]]
+  name = "welcome"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "rules"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "announcements"
+  kind = "announcement"
+
+[[categories]]
+name = "Community"
+
+  [[categories.channels]]
+  name = "general"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "help"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "off-topic"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "events"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "deploys"
+  kind = "text"
+
+  [[categories.channels]]
+  name = "mod-log"
+  kind = "text"
+  overwrites = [
+    { target = "@everyone", deny = ["view_channel"] },
+    { target = "@Moderator", allow = ["view_channel"] },
+  ]
+
+  [[categories.channels]]
+  name = "Lobby"
+  kind = "voice"
+
+[[automod]]
+name = "No invite links"
+trigger = { keyword = { regex = ['discord\.gg/\w+'] } }
+actions = [{ block = { message = "Invites aren't allowed here." } }, { alert = { channel = "#mod-log" } }]
+exempt_roles = ["@Moderator"]
+
+[onboarding]
+enabled = true
+mode = "advanced"
+default_channels = ["#welcome", "#rules", "#general", "#announcements", "#help", "#off-topic", "#events"]
+
+  [[onboarding.prompts]]
+  title = "What brings you here?"
+  options = [
+    { title = "Just looking around", roles = ["@Member"] },
+    { title = "I need help", roles = ["@Member"], channels = ["#help"] },
+  ]
+
+[welcome_screen]
+enabled = true
+description = "Welcome to the lab!"
+channels = [
+  { channel = "#rules", description = "Read the rules first" },
+  { channel = "#help", description = "Ask anything" },
+]
+
+[[emoji]]
+name = "guildsmith"
+image = { file = "assets/emoji/guildsmith.png" }
+
+[[stickers]]
+name = "Hammer"
+description = "Forged by guildsmith"
+tags = "hammer"
+image = { file = "assets/stickers/hammer.png" }
+
+[[sounds]]
+name = "ding"
+sound = { file = "assets/sounds/ding.mp3" }
+volume = 0.5
+
+[[webhooks]]                      # no token or url, ever
+name = "CI"
+channel = "#deploys"
+avatar = { file = "assets/webhooks/ci.png" }
+
+[[invites]]                       # without a code, matched by its settings
+channel = "#welcome"
+max_age = 0                       # never expires
+roles = ["@Member"]
+
+[[events]]
+name = "Game night"
+description = "Weekly games in the Lobby."
+start = 2027-01-08T18:00:00Z
+end = 2027-01-08T20:00:00Z
+location = { voice = "Lobby" }
+recurrence = { frequency = "weekly", weekday = "friday" }
+image = { file = "assets/events/game-night.png" }
+
+[[messages]]                      # a fixed rules post
+channel = "#rules"
+pinned = true
+content = """
+1. Be kind.
+2. No spam or invite links.
+3. Ask in #help when you're stuck."""
+
+[prune]
+automod = false
+emoji = false
+webhooks = false
+invites = false
+events = false
+messages = false

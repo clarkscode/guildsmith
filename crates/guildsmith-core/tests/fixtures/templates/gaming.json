@@ -1,0 +1,39 @@
+{
+  "code": "hgM48av5Q69A",
+  "name": "Gaming",
+  "description": "Hang out with friends and play games together.",
+  "usage_count": 1203451,
+  "creator_id": "132196734597234688",
+  "creator": {"id": "132196734597234688", "username": "discord", "avatar": null, "discriminator": "0"},
+  "created_at": "2020-09-30T16:44:41+00:00",
+  "updated_at": "2023-02-17T20:23:12+00:00",
+  "source_guild_id": "760973536493666334",
+  "serialized_source_guild": {
+    "name": "Gaming",
+    "description": null,
+    "region": "us-west",
+    "verification_level": 1,
+    "default_message_notifications": 1,
+    "explicit_content_filter": 2,
+    "preferred_locale": "en-US",
+    "afk_timeout": 300,
+    "roles": [
+      {"id": 0, "name": "@everyone", "color": 0, "hoist": false, "mentionable": false, "permissions": "6546775617", "icon": null, "unicode_emoji": null},
+      {"id": 1, "name": "Gamers", "color": 3447003, "hoist": true, "mentionable": true, "permissions": "0", "icon": null, "unicode_emoji": null},
+      {"id": 2, "name": "Moderators", "color": 15844367, "hoist": true, "mentionable": false, "permissions": "1099780063238", "icon": null, "unicode_emoji": null}
+    ],
+    "channels": [
+      {"id": 1, "type": 4, "name": "Text Channels", "position": 0, "topic": null, "bitrate": 64000, "user_limit": 0, "nsfw": false, "rate_limit_per_user": 0, "parent_id": null, "default_auto_archive_duration": null, "permission_overwrites": [], "available_tags": null, "template": "", "default_reaction_emoji": null, "default_thread_rate_limit_per_user": null, "default_sort_order": null, "default_forum_layout": null, "icon_emoji": null, "theme_color": null},
+      {"id": 2, "type": 0, "name": "general", "position": 0, "topic": null, "bitrate": 64000, "user_limit": 0, "nsfw": false, "rate_limit_per_user": 0, "parent_id": 1, "default_auto_archive_duration": null, "permission_overwrites": [], "available_tags": null, "template": "", "default_reaction_emoji": null},
+      {"id": 3, "type": 0, "name": "clips-and-highlights", "position": 1, "topic": "Show off your best plays", "bitrate": 64000, "user_limit": 0, "nsfw": false, "rate_limit_per_user": 30, "parent_id": 1, "default_auto_archive_duration": null, "permission_overwrites": [], "available_tags": null, "template": "", "default_reaction_emoji": null},
+      {"id": 4, "type": 0, "name": "mod-chat", "position": 2, "topic": null, "bitrate": 64000, "user_limit": 0, "nsfw": false, "rate_limit_per_user": 0, "parent_id": 1, "default_auto_archive_duration": null, "permission_overwrites": [{"id": 0, "type": 0, "allow": "0", "deny": "1024"}, {"id": 2, "type": 0, "allow": "1024", "deny": "0"}], "available_tags": null, "template": "", "default_reaction_emoji": null},
+      {"id": 5, "type": 4, "name": "Voice Channels", "position": 1, "topic": null, "bitrate": 64000, "user_limit": 0, "nsfw": false, "rate_limit_per_user": 0, "parent_id": null, "default_auto_archive_duration": null, "permission_overwrites": [], "available_tags": null, "template": "", "default_reaction_emoji": null},
+      {"id": 6, "type": 2, "name": "Lobby", "position": 0, "topic": null, "bitrate": 64000, "user_limit": 0, "nsfw": false, "rate_limit_per_user": 0, "parent_id": 5, "default_auto_archive_duration": null, "permission_overwrites": [], "available_tags": null, "template": "", "default_reaction_emoji": null},
+      {"id": 7, "type": 2, "name": "Gaming", "position": 1, "topic": null, "bitrate": 96000, "user_limit": 5, "nsfw": false, "rate_limit_per_user": 0, "parent_id": 5, "default_auto_archive_duration": null, "permission_overwrites": [], "available_tags": null, "template": "", "default_reaction_emoji": null}
+    ],
+    "afk_channel_id": null,
+    "system_channel_id": 2,
+    "system_channel_flags": 0
+  },
+  "is_dirty": null
+}

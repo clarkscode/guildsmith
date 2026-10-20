@@ -8,6 +8,23 @@ expression: out.toml
 [guild]
 id = "1000"
 name = "Guildsmith Lab"  # informational
+manage_settings = true
+
+[guild.settings]
+afk_channel = ""
+afk_timeout = 300
+default_notifications = "all_messages"
+description = ""
+explicit_content_filter = "disabled"
+features = { community = false, discoverable = false, invites_disabled = false, raid_alerts_disabled = false }
+preferred_locale = "en-US"
+premium_progress_bar = false
+public_updates_channel = ""
+rules_channel = ""
+safety_alerts_channel = ""
+system_channel = ""
+system_channel_flags = []
+verification_level = "none"
 
 # Roles are listed highest first.
 [[roles]]
@@ -102,3 +119,11 @@ overwrites = []
 roles = false
 categories = false
 channels = false
+automod = false
+emoji = false
+stickers = false
+sounds = false
+webhooks = false
+invites = false
+events = false
+messages = false

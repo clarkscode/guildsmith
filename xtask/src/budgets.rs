@@ -2,9 +2,11 @@
 //!
 //! - cold start to the first `tools/list` response: median of 20 runs < 50 ms;
 //! - stripped release binary < 10 MB;
-//! - tool descriptions ≤ 3,000 tokens and the full `tools/list` ≤ 9,000 tokens, estimated as
-//!   UTF-8 bytes ÷ 3.5;
-//! - the default toolset is exactly the 21 `core` tools, and `core,moderation` stays ≤ 25.
+//! - default: exactly the 23 `core` tools (v1's 21 plus the dispatcher), descriptions ≤ 3,000
+//!   tokens and the full `tools/list` ≤ 9,000 tokens, estimated as UTF-8 bytes ÷ 3.5;
+//! - each optional group (002 contracts/mcp-tools.md): ≤ 15 tools and ≤ 1,500 description
+//!   tokens on top of the default;
+//! - `all`: ≤ 15,000 description tokens, and cold start to `tools/list` still < 50 ms.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -20,8 +22,29 @@ const SIZE_BUDGET: u64 = 10 * 1024 * 1024;
 const DESC_TOKENS: f64 = 3_000.0;
 const LIST_TOKENS: f64 = 9_000.0;
 const MAX_TOOLS: usize = 25;
-/// The `core` toolset (contracts/mcp-tools.md).
-const CORE_TOOLS: usize = 21;
+/// The `core` toolset: v1's 21 tools plus `toolsets` and `tool_call` (002 research E1).
+const CORE_TOOLS: usize = 23;
+const GROUP_TOOLS: usize = 15;
+const GROUP_DESC_TOKENS: f64 = 1_500.0;
+const ALL_DESC_TOKENS: f64 = 15_000.0;
+/// Every tool, with every group registered (002 contracts/mcp-tools.md). Also catches a stale
+/// binary built before the groups existed.
+const ALL_TOOLS: usize = 84;
+/// Every optional group.
+const GROUPS: &[&str] = &[
+    "moderation",
+    "messages",
+    "threads",
+    "polls",
+    "events",
+    "invites",
+    "voice",
+    "automod",
+    "webhooks",
+    "expressions",
+    "settings",
+    "raw",
+];
 
 fn tokens(bytes: usize) -> f64 {
     #[allow(clippy::cast_precision_loss)] // byte counts are far below 2^52
@@ -111,29 +134,63 @@ pub fn run(args: &[String]) -> Result<()> {
         failures.push(format!("binary is {size} bytes ≥ {SIZE_BUDGET}"));
     }
 
-    for (label, toolsets, exact) in
-        [("default", None, Some(CORE_TOOLS)), ("core,moderation", Some("core,moderation"), None)]
-    {
-        let list = if toolsets.is_some() { one_run(&bin, toolsets)?.1 } else { list.clone() };
+    let measure = |list: &Value| -> Result<(usize, f64, f64)> {
         let tools = list["tools"].as_array().cloned().unwrap_or_default();
         let desc_bytes: usize = tools.iter().map(|t| t["description"].as_str().map_or(0, str::len)).sum();
-        let list_bytes = serde_json::to_vec(&list)?.len();
-        let (d, l) = (tokens(desc_bytes), tokens(list_bytes));
-        println!("{label}: {} tools, descriptions ≈ {d:.0} tokens, tools/list ≈ {l:.0} tokens", tools.len());
-        if tools.len() > MAX_TOOLS {
-            failures.push(format!("{label}: {} tools > {MAX_TOOLS}", tools.len()));
+        Ok((tools.len(), tokens(desc_bytes), tokens(serde_json::to_vec(list)?.len())))
+    };
+
+    let (n, d, l) = measure(&list)?;
+    println!("default: {n} tools, descriptions ≈ {d:.0} tokens, tools/list ≈ {l:.0} tokens");
+    if n != CORE_TOOLS {
+        failures.push(format!("default: {n} tools, expected exactly {CORE_TOOLS}"));
+    }
+    if n > MAX_TOOLS {
+        failures.push(format!("default: {n} tools > {MAX_TOOLS}"));
+    }
+    if d > DESC_TOKENS {
+        failures.push(format!("default: descriptions ≈ {d:.0} tokens > {DESC_TOKENS}"));
+    }
+    if l > LIST_TOKENS {
+        failures.push(format!("default: tools/list ≈ {l:.0} tokens > {LIST_TOKENS}"));
+    }
+
+    for group in GROUPS {
+        let (gn, gd, gl) = measure(&one_run(&bin, Some(&format!("core,{group}")))?.1)?;
+        let (tools, desc, full) = (gn - n, gd - d, gl - l);
+        println!("{group}: +{tools} tools, descriptions ≈ {desc:.0} tokens, definitions ≈ {full:.0} tokens");
+        if tools > GROUP_TOOLS {
+            failures.push(format!("{group}: {tools} tools > {GROUP_TOOLS}"));
         }
-        if let Some(n) = exact
-            && tools.len() != n
-        {
-            failures.push(format!("{label}: {} tools, expected exactly {n}", tools.len()));
+        if tools == 0 {
+            failures.push(format!("{group}: adds no tools (is the binary out of date?)"));
         }
-        if d > DESC_TOKENS {
-            failures.push(format!("{label}: descriptions ≈ {d:.0} tokens > {DESC_TOKENS}"));
+        if desc > GROUP_DESC_TOKENS {
+            failures.push(format!("{group}: descriptions ≈ {desc:.0} tokens > {GROUP_DESC_TOKENS}"));
         }
-        if l > LIST_TOKENS {
-            failures.push(format!("{label}: tools/list ≈ {l:.0} tokens > {LIST_TOKENS}"));
-        }
+    }
+
+    let mut all_times = Vec::with_capacity(RUNS);
+    let mut all_list = Value::Null;
+    for _ in 0..RUNS {
+        let (t, l) = one_run(&bin, Some("all"))?;
+        all_times.push(t);
+        all_list = l;
+    }
+    all_times.sort();
+    let all_median = all_times[RUNS / 2];
+    let (an, ad, al) = measure(&all_list)?;
+    println!(
+        "all: {an} tools, descriptions ≈ {ad:.0} tokens, tools/list ≈ {al:.0} tokens, cold start median {all_median:?}"
+    );
+    if an != ALL_TOOLS {
+        failures.push(format!("all: {an} tools, expected exactly {ALL_TOOLS} (is the binary out of date?)"));
+    }
+    if ad > ALL_DESC_TOKENS {
+        failures.push(format!("all: descriptions ≈ {ad:.0} tokens > {ALL_DESC_TOKENS}"));
+    }
+    if all_median >= START_BUDGET {
+        failures.push(format!("all: cold start {all_median:?} ≥ {START_BUDGET:?}"));
     }
 
     if failures.is_empty() {

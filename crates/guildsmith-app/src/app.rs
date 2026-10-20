@@ -9,13 +9,21 @@ use guildsmith_core::snapshot::Snapshot;
 use crate::cache::SnapshotCache;
 use crate::policy::Policy;
 use crate::ports::{Clock, DiscordPort, PortResult, SystemClock};
+use crate::secrets::WebhookTokens;
+use crate::toolsets::ToolsetState;
 
 /// What every service needs. Built once per process by the binary.
+///
+/// Shared immutably: `policy` can't change after startup, and of `toolsets` only the
+/// unlocked set can grow (data-model §1).
 pub struct App<P> {
     pub port: P,
     pub policy: Policy,
     pub cache: SnapshotCache,
     pub clock: Arc<dyn Clock>,
+    pub toolsets: ToolsetState,
+    /// Tokens of webhooks created in this process (never stored, logged or shown again).
+    pub webhook_tokens: WebhookTokens,
 }
 
 impl<P: DiscordPort> App<P> {
@@ -25,7 +33,8 @@ impl<P: DiscordPort> App<P> {
 
     /// An app whose cache follows `clock` (tests control time with it).
     pub fn with_clock(port: P, policy: Policy, clock: Arc<dyn Clock>) -> Self {
-        App { port, policy, cache: SnapshotCache::default(), clock }
+        let toolsets = ToolsetState::new(&policy.toolsets, &policy.blocked, clock.as_ref());
+        App { port, policy, cache: SnapshotCache::default(), clock, toolsets, webhook_tokens: WebhookTokens::default() }
     }
 
     /// A snapshot that may come from the cache (at most 60 seconds old).

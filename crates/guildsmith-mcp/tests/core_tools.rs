@@ -1,4 +1,5 @@
-//! T077: the `core` toolset over MCP: exactly the 21 tools with the right annotations,
+//! T077: the `core` toolset over MCP: exactly the 23 tools (v1's 21 plus the 002 dispatcher)
+//! with the right annotations,
 //! confirmations, untrusted message wrapping, paging, `bot_preflight`, and `moderation`.
 
 use std::collections::BTreeSet;
@@ -45,13 +46,21 @@ const CORE: &[(&str, bool, bool, bool)] = &[
     ("message_send", false, false, false),
     ("messages_read", true, false, true),
     ("bot_preflight", true, false, true),
+    ("toolsets", true, false, true),
+    ("tool_call", false, true, false),
 ];
 
 const MODERATION: &[(&str, bool, bool, bool)] = &[
+    ("member_ban", false, true, false),
+    ("ban_remove", false, false, false),
+    ("bans_list", true, false, true),
     ("member_timeout", false, false, true),
     ("member_kick", false, true, false),
-    ("member_ban", false, true, false),
-    ("ban_remove", false, false, true),
+    ("members_prune", false, true, false),
+    ("messages_purge", false, true, false),
+    ("roles_bulk_assign", false, false, false),
+    ("audit_log", true, false, true),
+    ("raid_lockdown", false, true, true),
 ];
 
 async fn connect(app: Arc<App<FakeDiscord>>) -> RunningService<RoleClient, Client> {
@@ -86,7 +95,8 @@ fn check(tools: &[Tool], expected: &[(&str, bool, bool, bool)]) {
         assert_eq!(a.destructive_hint, Some(*destructive), "{name} destructiveHint");
         assert_eq!(a.idempotent_hint, Some(*idempotent), "{name} idempotentHint");
         assert_eq!(a.open_world_hint, Some(true), "{name} openWorldHint");
-        assert!(t.output_schema.is_some(), "{name} outputSchema");
+        // tool_call returns its target tool's result, so it has no schema of its own.
+        assert_eq!(t.output_schema.is_some(), *name != "tool_call", "{name} outputSchema");
     }
 }
 
@@ -97,7 +107,7 @@ async fn default_tools_are_exactly_core() {
     let names: BTreeSet<&str> = tools.iter().map(|t| t.name.as_ref()).collect();
     let want: BTreeSet<&str> = CORE.iter().map(|t| t.0).collect();
     assert_eq!(names, want);
-    assert_eq!(tools.len(), 21);
+    assert_eq!(tools.len(), 23);
     check(&tools, CORE);
     for t in &tools {
         let meta = t.meta.as_ref().and_then(|m| m.0.get("anthropic/requiresUserInteraction"));
@@ -107,10 +117,10 @@ async fn default_tools_are_exactly_core() {
 }
 
 #[tokio::test]
-async fn moderation_adds_four_tools() {
+async fn moderation_adds_its_ten_tools() {
     let c = connect(lab(&[Toolset::Core, Toolset::Moderation])).await;
     let tools = c.list_all_tools().await.unwrap();
-    assert_eq!(tools.len(), 25);
+    assert_eq!(tools.len(), 23 + MODERATION.len());
     check(&tools, MODERATION);
 }
 

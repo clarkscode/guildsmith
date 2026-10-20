@@ -244,3 +244,107 @@ fn every_command_and_tool_keeps_the_token_out_of_outputs_and_logs() {
     assert!(logs.contains("TRACE") || logs.contains("DEBUG"), "trace logging was on");
     assert_clean("logs", &logs);
 }
+
+/// A webhook token the mock Discord hands out: it must never reach an output or a log.
+const WEBHOOK_CANARY: &str = "whcanaryAbCdEf0123456789_-AbCdEf0123456789_-AbCdEf0123456789_-AbCd";
+
+/// T112: every tool of every group (002), through the real adapter with every write failing,
+/// keeps the bot token and webhook tokens out of outputs, errors and logs. Webhook tokens come
+/// back from Discord in lists, raw reads and the webhook route itself.
+#[test]
+fn every_group_keeps_bot_and_webhook_tokens_out() {
+    use guildsmith_app::App;
+    use guildsmith_app::policy::{Policy, Toolset};
+    use guildsmith_discord::TwilightDiscord;
+    use rmcp::ServiceExt;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, ResponseTemplate};
+
+    let logs = Captured::default();
+    let sink = logs.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::TRACE)
+        .with_ansi(false)
+        .with_writer(move || sink.clone())
+        .finish();
+    let mut outputs = String::new();
+    tracing::subscriber::with_default(subscriber, || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        rt.block_on(async {
+            let base = mock_discord().await;
+            let hook = serde_json::json!({"id": "700", "type": 1, "name": "CI", "channel_id": "101",
+                "guild_id": "1000", "token": WEBHOOK_CANARY,
+                "url": format!("https://discord.com/api/webhooks/700/{WEBHOOK_CANARY}")});
+            // Ahead of the catch-all 403 that fails every write.
+            for (p, body) in [
+                ("guilds/1000/webhooks", serde_json::json!([hook.clone()])),
+                ("channels/101/webhooks", serde_json::json!([hook.clone()])),
+                ("webhooks/700", hook.clone()),
+            ] {
+                Mock::given(method("GET"))
+                    .and(path(format!("/api/v10/{p}")))
+                    .respond_with(ResponseTemplate::new(200).set_body_json(body))
+                    .with_priority(1)
+                    .mount(&base)
+                    .await;
+            }
+            let policy = Policy { toolsets: Toolset::ALL.iter().copied().collect(), ..Policy::default() };
+            let app = std::sync::Arc::new(App::new(
+                TwilightDiscord::with_proxy(Some(Secret::new(CANARY)), base.address().to_string()),
+                policy,
+            ));
+            let (server_io, client_io) = tokio::io::duplex(1 << 22);
+            let server = guildsmith_mcp::GuildsmithServer::new(app.clone());
+            tokio::spawn(async move {
+                if let Ok(running) = server.serve(server_io).await {
+                    let _ = running.waiting().await;
+                }
+            });
+            let client = ().serve(client_io).await.unwrap();
+            let g = "1000";
+            let mut calls: Vec<(String, serde_json::Value)> = vec![
+                ("webhooks_list".into(), serde_json::json!({"guild": g})),
+                ("webhook_send".into(), serde_json::json!({"guild": g, "webhook": "CI", "content": "deployed"})),
+                ("webhook_update".into(), serde_json::json!({"guild": g, "webhook": "CI", "name": "CI 2"})),
+                ("webhook_delete".into(), serde_json::json!({"guild": g, "webhook": "CI", "confirm": true})),
+                ("discord_request".into(), serde_json::json!({"method": "GET", "path": "guilds/1000/webhooks"})),
+                ("discord_request".into(), serde_json::json!({"method": "GET", "path": "webhooks/700"})),
+                (
+                    "discord_request".into(),
+                    serde_json::json!({"method": "POST", "path": "channels/101/messages",
+                        "body": {"content": "x"}, "confirm": true}),
+                ),
+                ("spec_export".into(), serde_json::json!({"guild": g})),
+            ];
+            // Every other tool once, with the server and confirm (missing inputs fail fast).
+            for t in Toolset::ALL.iter().flat_map(|t| t.tools()) {
+                calls.push(((*t).to_owned(), serde_json::json!({"guild": g, "confirm": true})));
+            }
+            for (tool, args) in calls {
+                let params = rmcp::model::CallToolRequestParams::new(tool.clone())
+                    .with_arguments(args.as_object().unwrap().clone());
+                match client.call_tool(params).await {
+                    Ok(res) => outputs.push_str(&serde_json::to_string(&res).unwrap()),
+                    Err(e) => {
+                        use std::fmt::Write as _;
+                        let _ = write!(outputs, "{tool}: {e}");
+                    }
+                }
+            }
+            let requests = base.received_requests().await.unwrap();
+            assert!(
+                requests.iter().any(|r| r.url.path() == "/api/v10/guilds/1000/webhooks"),
+                "the webhook list was really read"
+            );
+        });
+    });
+    assert!(outputs.contains("\\\"CI\\\""), "webhooks_list returned the mock's webhook:\n{outputs}");
+    assert!(outputs.contains("<redacted>"), "the raw reads were redacted, not empty");
+    for secret in [CANARY, WEBHOOK_CANARY] {
+        assert!(!outputs.contains(secret), "outputs leaked {secret}:\n{outputs}");
+    }
+    let logs = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    for secret in [CANARY, WEBHOOK_CANARY] {
+        assert!(!logs.contains(secret), "logs leaked {secret}");
+    }
+}

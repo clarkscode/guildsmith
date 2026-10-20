@@ -13,6 +13,8 @@ pub const GUILD: Id = Id(1000);
 pub const OWNER: Id = Id(1);
 pub const BOT: Id = Id(2);
 
+pub mod kinds;
+
 pub fn perms(list: &[Permission]) -> PermissionSet {
     list.iter().copied().collect()
 }

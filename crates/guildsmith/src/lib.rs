@@ -53,13 +53,23 @@ pub fn load_config(cli: &Cli) -> Result<Config, String> {
     {
         cfg.toolsets = policy::parse_toolsets(list).map_err(|e| e.to_string())?;
     }
+    if let Command::Group(words) = &cli.command {
+        // Global flags after the group name aren't seen by clap.
+        if words.iter().any(|w| w == "--read-only") {
+            cfg.read_only = true;
+        }
+        // The operator runs the CLI: files under the current directory may be read as assets.
+        if let Ok(dir) = std::env::current_dir() {
+            cfg.file_roots.push(dir);
+        }
+    }
     Ok(cfg)
 }
 
 /// The startup warning for an empty allowlist (FR-016), for commands that reach Discord.
 #[must_use]
 pub fn startup_warning(command: &Command, policy: &Policy) -> Option<&'static str> {
-    let offline = matches!(command, Command::Validate(_) | Command::Schema(_) | Command::Auth(_));
+    let offline = matches!(command, Command::Validate(_) | Command::Schema(_) | Command::Auth(_) | Command::Toolsets);
     if offline { None } else { policy.allowlist_warning() }
 }
 
@@ -138,6 +148,8 @@ pub async fn dispatch_with<P: DiscordPort + 'static>(
         Command::Plan(args) => cli::plan::run(&app, guild, args, cli.json, out, err).await,
         Command::Apply(args) => cli::apply::run(&app, guild, args, cli.json, (out, err), confirm).await,
         Command::Doctor => cli::doctor::run(&app, guild, cli.json, out).await,
+        Command::Toolsets => cli::toolsets::run(&app, cli.json, out),
+        Command::Group(words) => cli::groups::run(app, guild, cli.json, words, (out, err), confirm).await,
         Command::Auth(args) => {
             let source = load_config(cli).ok().and_then(|c| c.token_source);
             cli::auth::run(args.command, &cli::auth::Keyring, source, &mut cli::auth::read_token, out, err)

@@ -1,5 +1,6 @@
 //! The planner: spec + snapshot + matches → ordered ops (data-model §3, research R7–R10).
 
+pub mod kinds;
 pub mod ops;
 pub mod order;
 pub mod positions;
@@ -15,8 +16,10 @@ use crate::matching::{Matches, stored_channel_name};
 use crate::snapshot::{Completeness, LiveChannel, LiveChannelKind, LiveOverwrite, OverwriteKind, Snapshot};
 use crate::spec::{CategorySpec, ChannelKind, ChannelSpec, GuildSpec, OverwriteSpec, Target};
 
+pub use kinds::SpecAssets;
 pub use ops::{
     ChannelAttrs, ChannelSlot, FieldChange, Op, OpKind, OverwriteOp, Ref, Risk, RoleAttrs, RoleSlot, Scope, ScopeOrder,
+    WriteId, Written,
 };
 pub use order::Phase;
 
@@ -37,6 +40,8 @@ pub struct Plan {
     pub estimated_requests: u32,
     pub risk: Risk,
     pub snapshot_fingerprint: String,
+    /// Ids to write into the spec file after apply (research E9); not ops.
+    pub write_ids: Vec<WriteId>,
 }
 
 impl Plan {
@@ -95,6 +100,7 @@ pub(crate) struct Builder<'a> {
     /// Live channels that a replace deletes and recreates.
     replaced: BTreeSet<Id>,
     next_group: u32,
+    pub write_ids: Vec<WriteId>,
 }
 
 impl<'a> Builder<'a> {
@@ -116,6 +122,7 @@ impl<'a> Builder<'a> {
             role_refs,
             replaced: BTreeSet::new(),
             next_group: 0,
+            write_ids: Vec::new(),
         }
     }
 

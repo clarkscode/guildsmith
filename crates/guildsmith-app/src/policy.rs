@@ -1,68 +1,12 @@
 //! The safety policy both interfaces call (constitution I): allowlist, read-only, toolsets.
 
 use std::collections::BTreeSet;
-use std::fmt;
-use std::str::FromStr;
+use std::path::PathBuf;
 
 use guildsmith_core::Id;
 use serde::Serialize;
 
-/// A named set of agent tools. Only `core` is on by default.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Toolset {
-    Core,
-    Moderation,
-}
-
-impl Toolset {
-    pub const ALL: &'static [Toolset] = &[Toolset::Core, Toolset::Moderation];
-
-    #[must_use]
-    pub const fn name(self) -> &'static str {
-        match self {
-            Toolset::Core => "core",
-            Toolset::Moderation => "moderation",
-        }
-    }
-}
-
-impl fmt::Display for Toolset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-/// An unknown toolset name.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("unknown toolset `{name}`; valid toolsets: {valid}")]
-pub struct UnknownToolset {
-    pub name: String,
-    pub valid: String,
-}
-
-impl FromStr for Toolset {
-    type Err = UnknownToolset;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Toolset::ALL.iter().copied().find(|t| t.name() == s).ok_or_else(|| UnknownToolset {
-            name: s.to_owned(),
-            valid: Toolset::ALL.iter().map(|t| t.name()).collect::<Vec<_>>().join(", "),
-        })
-    }
-}
-
-/// Parses `GUILDSMITH_TOOLSETS` (`core,moderation`, `default`). `core` is always included.
-pub fn parse_toolsets(raw: &str) -> Result<BTreeSet<Toolset>, UnknownToolset> {
-    let mut set = BTreeSet::from([Toolset::Core]);
-    for part in raw.split(',').map(str::trim).filter(|p| !p.is_empty()) {
-        if part == "default" {
-            continue;
-        }
-        set.insert(part.parse()?);
-    }
-    Ok(set)
-}
+pub use crate::toolsets::{Toolset, UnknownToolset, parse_toolsets};
 
 /// Parses `GUILDSMITH_GUILDS`: comma-separated server ids.
 pub fn parse_allowlist(raw: &str) -> Result<BTreeSet<Id>, String> {
@@ -83,6 +27,12 @@ pub enum RefusalKind {
     PlanMismatch,
     Preflight,
     NotBotToken,
+    /// The operator blocked the toolset (`GUILDSMITH_TOOLSETS_BLOCK`).
+    Blocked,
+    /// The toolset isn't unlocked; enable it with `toolsets` first.
+    Locked,
+    /// Something bots can't do, or that guildsmith never does (e.g. token routes).
+    Unsupported,
 }
 
 /// A policy refusal: nothing was changed.
@@ -109,18 +59,30 @@ impl Refusal {
     }
 }
 
-/// The operator's rules.
+/// The operator's rules. Fixed for the life of the process: no tool can change them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Policy {
     /// `None` = every server the bot is in (with a startup warning).
     pub allowlist: Option<BTreeSet<Id>>,
     pub read_only: bool,
+    /// Groups registered at startup (`GUILDSMITH_TOOLSETS`).
     pub toolsets: BTreeSet<Toolset>,
+    /// Groups the agent may not enable (`GUILDSMITH_TOOLSETS_BLOCK`). Wins over `toolsets`.
+    pub blocked: BTreeSet<Toolset>,
+    /// Directories MCP tools may read asset files from (`GUILDSMITH_FILE_ROOTS`). Empty means
+    /// no local files, only URLs and inline data (research E7).
+    pub file_roots: Vec<PathBuf>,
 }
 
 impl Default for Policy {
     fn default() -> Self {
-        Policy { allowlist: None, read_only: false, toolsets: BTreeSet::from([Toolset::Core]) }
+        Policy {
+            allowlist: None,
+            read_only: false,
+            toolsets: BTreeSet::from([Toolset::Core]),
+            blocked: BTreeSet::new(),
+            file_roots: Vec::new(),
+        }
     }
 }
 

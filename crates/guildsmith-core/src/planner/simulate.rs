@@ -3,11 +3,14 @@
 //! permute the slots managed items occupy), so property tests can check that plans converge
 //! without any I/O (constitution III).
 
+mod kinds;
+
 use std::collections::BTreeMap;
 
 use super::ops::{ChannelAttrs, Op, OpKind, OverwriteOp, Ref, RoleAttrs, Scope, ScopeOrder};
 use super::positions;
 use crate::id::Id;
+use crate::live::LiveExtras;
 use crate::snapshot::{LiveChannel, LiveChannelKind, LiveOverwrite, LiveRole, LiveTag, Snapshot};
 
 /// Why a simulated op couldn't run.
@@ -20,7 +23,10 @@ pub struct SimulateError {
 
 struct Sim {
     s: Snapshot,
+    x: LiveExtras,
     created: BTreeMap<String, Id>,
+    /// Invite codes made by the plan, by op key.
+    codes: BTreeMap<String, String>,
     next_id: u64,
 }
 
@@ -224,17 +230,43 @@ impl Sim {
                     c.overwrites.retain(|o| o.id != *id);
                 }
             }
+            other => self.run_kind(other)?,
         }
         Ok(())
     }
 }
 
-/// The snapshot after running `ops` in order.
-pub fn simulate(snapshot: &Snapshot, ops: &[Op]) -> Result<Snapshot, SimulateError> {
+fn run_all(snapshot: &Snapshot, extras: &LiveExtras, ops: &[Op]) -> Result<Sim, SimulateError> {
     let max = snapshot.roles.iter().map(|r| r.id.0).chain(snapshot.channels.iter().map(|c| c.id.0)).max().unwrap_or(0);
-    let mut sim = Sim { s: snapshot.clone(), created: BTreeMap::new(), next_id: max.max(1 << 40) };
+    let mut sim = Sim {
+        s: snapshot.clone(),
+        x: extras.clone(),
+        created: BTreeMap::new(),
+        codes: BTreeMap::new(),
+        next_id: max.max(1 << 40),
+    };
     for op in ops {
         sim.run(op).map_err(|reason| SimulateError { summary: op.summary.clone(), reason })?;
     }
-    Ok(sim.s)
+    Ok(sim)
+}
+
+/// The snapshot after running `ops` in order.
+pub fn simulate(snapshot: &Snapshot, ops: &[Op]) -> Result<Snapshot, SimulateError> {
+    run_all(snapshot, &LiveExtras::default(), ops).map(|sim| sim.s)
+}
+
+/// [`simulate`], also returning the id each create op made, by its key.
+pub fn simulate_keyed(snapshot: &Snapshot, ops: &[Op]) -> Result<(Snapshot, BTreeMap<String, Id>), SimulateError> {
+    run_all(snapshot, &LiveExtras::default(), ops).map(|sim| (sim.s, sim.created))
+}
+
+/// The server, and every other kind's live state, after running `ops` in order. Kinds not read
+/// (`None` in `extras`) stay unread.
+pub fn simulate_with(
+    snapshot: &Snapshot,
+    extras: &LiveExtras,
+    ops: &[Op],
+) -> Result<(Snapshot, LiveExtras), SimulateError> {
+    run_all(snapshot, extras, ops).map(|sim| (sim.s, sim.x))
 }

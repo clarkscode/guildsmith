@@ -4,8 +4,10 @@
 use std::collections::BTreeMap;
 
 use crate::hash;
+use crate::live::LiveExtras;
 use crate::matching::{self, PlanError, stored_channel_name};
 use crate::permissions::PermissionSet;
+use crate::planner::SpecAssets;
 use crate::planner::{self, Builder, ChannelAttrs, FieldChange, OpKind, OverwriteOp, Plan, Ref, Risk, RoleAttrs};
 use crate::snapshot::{LiveChannel, LiveOverwrite, LiveRole, OverwriteKind, Snapshot};
 use crate::spec::{ChannelSpec, ForumTag, GuildSpec, RoleSpec};
@@ -243,8 +245,20 @@ pub fn describe_overwrites(
 }
 
 /// Compares a spec with a live snapshot and returns the ordered plan, or every problem that
-/// stops it from being planned.
+/// stops it from being planned. Kinds beyond roles and channels are left alone: see
+/// [`diff_with`].
 pub fn diff(spec: &GuildSpec, snapshot: &Snapshot) -> Result<Plan, PlanError> {
+    diff_with(spec, snapshot, &LiveExtras::default(), &SpecAssets::new())
+}
+
+/// [`diff`], plus every kind whose live state is in `extras` (US9). `assets` holds the blake3
+/// of each file the spec names, by spec path.
+pub fn diff_with(
+    spec: &GuildSpec,
+    snapshot: &Snapshot,
+    extras: &LiveExtras,
+    assets: &SpecAssets,
+) -> Result<Plan, PlanError> {
     let invalid: Vec<String> = validate::validate(spec)
         .into_iter()
         .filter(|(sev, ..)| *sev == Severity::Error)
@@ -261,6 +275,7 @@ pub fn diff(spec: &GuildSpec, snapshot: &Snapshot) -> Result<Plan, PlanError> {
     b.channels();
     b.reorder_channels();
     b.prune();
+    b.kinds(extras, assets);
     if !b.errors.is_empty() {
         return Err(PlanError { problems: b.errors });
     }
@@ -281,7 +296,12 @@ pub fn diff(spec: &GuildSpec, snapshot: &Snapshot) -> Result<Plan, PlanError> {
         .saturating_add(planner::SNAPSHOT_READS)
         .saturating_add(reorder_reads);
     let risk = if ops.iter().any(|o| o.risk == Risk::Destructive) { Risk::Destructive } else { Risk::Safe };
-    let fingerprint = snapshot.fingerprint();
+    // v1 plans keep their hashes: the extras count only when something was read.
+    let fingerprint = if extras.is_empty() {
+        snapshot.fingerprint()
+    } else {
+        blake3::hash(format!("{}{}", snapshot.fingerprint(), extras.fingerprint()).as_bytes()).to_hex().to_string()
+    };
     Ok(Plan {
         hash: hash::plan_hash(&ops, &fingerprint, spec),
         ops,
@@ -290,5 +310,6 @@ pub fn diff(spec: &GuildSpec, snapshot: &Snapshot) -> Result<Plan, PlanError> {
         estimated_requests,
         risk,
         snapshot_fingerprint: fingerprint,
+        write_ids: b.write_ids,
     })
 }

@@ -183,8 +183,10 @@ fn sync_permissions_rules() {
 }
 
 #[test]
-fn manage_settings_is_rejected_in_v1() {
-    assert!(has_error("[guild]\nmanage_settings = true\n", "not supported in v1"));
+fn settings_need_manage_settings() {
+    // 002 lifts v1's rejection: `manage_settings = true` turns `[guild.settings]` on.
+    assert_no_errors("[guild]\nmanage_settings = true\n\n[guild.settings]\ndescription = \"x\"\n");
+    assert!(has_error("[guild.settings]\ndescription = \"x\"\n", "manage_settings = true"));
 }
 
 #[test]
