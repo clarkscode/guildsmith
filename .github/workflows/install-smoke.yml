@@ -75,6 +75,8 @@ jobs:
         run: printf '%s' "$MCP_SESSION" | guildsmith mcp | grep -F '"guilds_list"'
 
   npm:
+    # First release: run manually after the npm packages are published.
+    if: github.event_name == 'workflow_dispatch'
     needs: version
     name: npm (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

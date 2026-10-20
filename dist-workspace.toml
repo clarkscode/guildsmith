@@ -17,5 +17,6 @@ checksum = "sha256"
 install-path = "CARGO_HOME"
 # npm packages are built by our own job (cargo xtask npm-pack), not dist's postinstall installer.
 pr-run-mode = "plan"
-# Our own publish jobs (.github/workflows/publish-*.yml), gated on the `release` environment.
-publish-jobs = ["./publish-npm", "./publish-crates"]
+# First release: npm packages are published manually with account 2FA.
+# The crates.io publish job is gated on the `release` environment.
+publish-jobs = ["./publish-crates"]
