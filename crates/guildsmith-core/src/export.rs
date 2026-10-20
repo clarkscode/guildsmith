@@ -1,6 +1,10 @@
 //! Snapshot → spec: what `export` writes (FR-003/FR-004). Pure; the app layer fetches the
 //! snapshot and the writer formats the result.
 
+mod kinds;
+
+pub use kinds::add_kinds;
+
 use std::collections::BTreeMap;
 
 use crate::id::Id;
@@ -180,11 +184,12 @@ pub fn to_spec(snapshot: &Snapshot) -> (GuildSpec, ExportNotes) {
     }
 
     let spec = GuildSpec {
-        guild: GuildInfo { id: Some(s.guild.id), name: Some(s.guild.name.clone()), manage_settings: false },
+        guild: GuildInfo { id: Some(s.guild.id), name: Some(s.guild.name.clone()), ..GuildInfo::default() },
         roles: role_specs,
         categories,
         channels,
         prune: PruneSpec::default(),
+        ..GuildSpec::default()
     };
     (spec, notes)
 }

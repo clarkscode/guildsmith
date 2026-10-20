@@ -8,8 +8,6 @@ use guildsmith_app::ports::{ChannelFields, ChannelPosition, PortError, PortResul
 use guildsmith_core::Id;
 use guildsmith_core::snapshot::{LiveOverwrite, OverwriteKind};
 use guildsmith_core::spec::ForumTag;
-use http::header::{HeaderName, HeaderValue};
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::Serialize;
 use twilight_http::Client;
 use twilight_http::request::{AuditLogReason, Request};
@@ -19,14 +17,8 @@ use twilight_model::guild::RolePosition as TRolePosition;
 use twilight_model::http::channel_position::Position;
 
 use crate::error::map_err;
+use crate::raw::audit;
 use crate::{ids, map};
-
-/// `X-Audit-Log-Reason`, percent-encoded as Discord requires.
-fn audit(reason: &str) -> PortResult<impl Iterator<Item = (HeaderName, HeaderValue)>> {
-    let value = HeaderValue::from_str(&utf8_percent_encode(reason, NON_ALPHANUMERIC).to_string())
-        .map_err(|e| PortError::Discord { status: 0, code: None, message: format!("bad audit reason: {e}") })?;
-    Ok(std::iter::once((HeaderName::from_static("x-audit-log-reason"), value)))
-}
 
 pub(crate) async fn create_role(http: &Client, guild: Id, f: &RoleFields, reason: &str) -> PortResult<Id> {
     let mut req = http.create_role(ids::guild(guild)?);

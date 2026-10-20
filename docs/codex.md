@@ -24,7 +24,8 @@ codex plugin marketplace add clarkscode/guildsmith
 
 Then install `guildsmith` from that marketplace. The plugin (`plugins/codex/`) runs
 `npx -y guildsmith@<version> mcp` and adds the guild-* skills: writing `guild.toml`, applying
-safely, debugging permissions, plus plan, apply and doctor workflows.
+safely, debugging permissions, moderation, community tools (messages, threads, polls, events,
+invites, voice), the whole server as code, raw requests, plus plan, apply and doctor workflows.
 
 ## 2b. Or configure it by hand
 
@@ -48,5 +49,9 @@ Install the `guildsmith` binary with the shell or PowerShell installer from the 
 ## 3. Check it works
 
 Ask Codex to "list my Discord servers with guildsmith", or run `guildsmith doctor -g <server id>`
-in a terminal. Optional tool groups are enabled with `GUILDSMITH_TOOLSETS=core,moderation`; add it
-to `env_vars` to forward it.
+in a terminal.
+
+Codex starts with the 23 `core` tools and can switch on other groups (moderation, events, …)
+itself when a task needs them. To register groups up front instead, set
+`GUILDSMITH_TOOLSETS=core,moderation` (or `all`) and add it to `env_vars`; to rule a group out,
+set `GUILDSMITH_TOOLSETS_BLOCK=raw`. See [tools.md](tools.md) for every group.

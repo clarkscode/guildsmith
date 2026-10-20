@@ -1,6 +1,7 @@
 # Acceptance results: guildsmith v1
 
 Recorded 2026-10-19 on Linux x86_64 (rustc 1.99.1), from the working tree after tasks T050–T101.
+Offline results re-verified 2026-10-20 at commit 693793e (same toolchain); figures below are from that run.
 Results are tables, not checkboxes: this file records evidence and is not a gate.
 
 ## Budgets (T102: SC-003, SC-004, SC-005)
@@ -9,7 +10,7 @@ Results are tables, not checkboxes: this file records evidence and is not a gate
 
 | Budget | Limit | Measured | Result |
 |---|---|---|---|
-| Cold start to the first `tools/list` (median of 20) | < 50 ms | 9.56 ms | pass |
+| Cold start to the first `tools/list` (median of 20) | < 50 ms | 11.51 ms | pass |
 | Stripped release binary | < 10 MiB | 7.20 MiB (7,549,864 bytes) | pass |
 | `core` toolset size | exactly 21 | 21 | pass |
 | `core,moderation` toolset size | ≤ 25 | 25 | pass |
@@ -25,7 +26,7 @@ descriptions or numeric formats to stay within the budget; input descriptions ar
 
 | § | Scenario | Status | Evidence |
 |---|---|---|---|
-| 0 | Build and offline checks | pass | `cargo test --workspace --all-features`: 44 test binaries, all pass. `cargo clippy --workspace --all-targets --all-features -- -D warnings` clean. MSRV: `cargo +1.97 check --workspace --all-targets --all-features` passes. Budgets above. |
+| 0 | Build and offline checks | pass | `cargo test --workspace --all-features`: 45 test result groups (including doc-tests), 188 tests, all pass. `cargo clippy --workspace --all-targets --all-features -- -D warnings` clean. MSRV: `cargo +1.97 check --workspace --all-targets --all-features` passes. Budgets above. |
 | 1 | Export round trip (SC-001) | pass offline; live run pending | `export_roundtrip` (recorded fixtures + 128 generated snapshots through the real writer and parser) and `planner_props::exports_plan_to_nothing`. Live: `tests/live/export.rs`. |
 | 2 | Apply converges (SC-002) | pass offline; live run pending | `examples` (all three examples apply to an empty `FakeDiscord` and re-plan to nothing); `planner_props` convergence properties (20,000 cases each checked during development). Live: `tests/live/apply.rs`. |
 | 3 | Server changed between plan and apply | pass offline; live run pending | `apply::a_server_edited_between_plan_and_apply_is_refused`, `cli_plan::interactive_apply_uses_the_shown_plans_hash`. Live: `tests/live/apply.rs`. |

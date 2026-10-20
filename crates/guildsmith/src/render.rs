@@ -116,6 +116,9 @@ pub fn apply_report(out: &mut dyn Write, r: &ApplyReport) {
             let _ = writeln!(out, "hint: run plan again; it lists only what's left");
         }
     }
+    for s in &r.secrets {
+        let _ = writeln!(out, "secret: copy now, it isn't shown again: webhook {} URL {}", s.webhook, s.url);
+    }
 }
 
 /// Each doctor check with its status, then every problem with its fix.

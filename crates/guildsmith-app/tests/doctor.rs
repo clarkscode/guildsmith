@@ -94,3 +94,48 @@ async fn the_allowlist_status_is_reported() {
     let r = doctor(&closed, Some("1000")).await;
     assert_eq!(status(&r, "server"), Status::Fail, "{r:#?}");
 }
+
+/// 002 T020: per-group permissions, the `MESSAGE_CONTENT` intent for `messages`, and prune
+/// needing Administrator when the server has `PRUNE_REQUIRES_ADMIN`.
+#[tokio::test]
+async fn groups_report_their_permissions_and_intents() {
+    let policy = Policy { toolsets: BTreeSet::from([Toolset::Core, Toolset::Messages, Toolset::Polls]), ..allowed() };
+    let fake = fixtures::lab_fake();
+    fake.set_app_flags(0);
+    let r = doctor(&App::new(fake, policy.clone()), Some("1000")).await;
+    assert_eq!(status(&r, "intents"), Status::Fail, "{r:#?}");
+    let c = r.checks.iter().find(|c| c.name == "intents").unwrap();
+    assert!(
+        matches!(&c.problems[0].problem, PreflightProblem::MissingIntent { intent, .. } if intent == "MESSAGE_CONTENT")
+    );
+    assert!(c.problems[0].fix.contains("developer portal"));
+    assert!(r.checks.iter().any(|c| c.name == "permissions (polls)"), "one check per registered group");
+
+    let fake = fixtures::lab_fake();
+    fake.set_app_flags(guildsmith_app::preflight::MESSAGE_CONTENT_FLAGS);
+    let r = doctor(&App::new(fake, policy), Some("1000")).await;
+    assert_eq!(status(&r, "intents"), Status::Pass);
+    // No group that needs intents: no intents check at all.
+    let r = doctor(&App::new(fixtures::lab_fake(), allowed()), Some("1000")).await;
+    assert!(r.checks.iter().all(|c| c.name != "intents"));
+}
+
+#[tokio::test]
+async fn prune_needs_administrator_when_the_server_says_so() {
+    let mut s = fixtures::lab();
+    s.guild.features.insert(guildsmith_app::preflight::PRUNE_REQUIRES_ADMIN.to_owned());
+    s.roles.iter_mut().find(|r| r.id == fixtures::BOT_ROLE).unwrap().permissions =
+        [Permission::KickMembers].into_iter().collect::<PermissionSet>();
+    let app = App::new(FakeDiscord::new(vec![(s, fixtures::lab_members())]), allowed());
+    let snap = app.fresh_snapshot(fixtures::GUILD).await.unwrap();
+    let problems = guildsmith_app::preflight::check_tools(&snap, ["members_prune"]);
+    assert!(
+        problems
+            .iter()
+            .any(|p| matches!(p, PreflightProblem::MissingPermission { perm, .. } if perm == "administrator")),
+        "{problems:?}"
+    );
+    let r =
+        guildsmith_app::services::doctor::bot_preflight(&app, Some("1000"), Some("members_prune"), None).await.unwrap();
+    assert!(!r.ok);
+}

@@ -2,12 +2,16 @@
 
 use std::path::Path;
 
+use guildsmith_app::assets::{self, Caller};
 use guildsmith_app::date;
+use guildsmith_app::error::ServiceError;
+use guildsmith_app::policy::Policy;
 use guildsmith_app::ports::{DiscordPort, SystemClock};
 use guildsmith_app::services::apply::{self, ApplyReport, Progress};
 use guildsmith_app::services::export;
 use guildsmith_app::services::plan::{self, PlanOutput};
 use guildsmith_app::services::validate::{self, ValidateOutput};
+use guildsmith_app::writeback;
 use guildsmith_core::planner::Risk;
 use rmcp::handler::server::common::schema_for_output;
 use rmcp::handler::server::wrapper::Parameters;
@@ -21,6 +25,12 @@ use super::respond;
 use crate::server::GuildsmithServer;
 use crate::shape;
 
+/// A spec file an MCP tool may read and write: under GUILDSMITH_FILE_ROOTS.
+fn spec_file(policy: &Policy, file: &str) -> Result<std::path::PathBuf, ServiceError> {
+    let roots = assets::allowed_roots(policy, Caller::Mcp { base: None });
+    assets::resolve_file(file, None, &roots)
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct ExportParams {
     /// Server id or exact name. Optional when exactly one server is allowed.
@@ -29,6 +39,10 @@ pub(crate) struct ExportParams {
     /// Also write the file here. Refuses to overwrite an existing file.
     #[serde(default)]
     pub path: Option<String>,
+    /// Save emoji, stickers, sounds and images under this directory's assets/ (must be in
+    /// GUILDSMITH_FILE_ROOTS); otherwise they are exported as CDN urls.
+    #[serde(default)]
+    pub assets_dir: Option<String>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -64,18 +78,23 @@ pub(crate) struct ApplyParams {
     pub toml: String,
     /// The plan_hash from spec_plan, after the user reviewed that plan.
     pub plan_hash: String,
+    /// The spec file (in GUILDSMITH_FILE_ROOTS): created items' ids are written into it.
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 #[tool_router(router = spec_tools, vis = "pub(crate)")]
 impl<P: DiscordPort + 'static> GuildsmithServer<P> {
     #[tool(
-        description = "Export a server's roles, categories, channels and permissions as guild.toml text.",
+        description = "Export a server as guild.toml text: structure, settings and every other kind, never secrets.",
         annotations(read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = true),
         output_schema = schema_for_output::<ExportResult>()
     )]
     async fn spec_export(&self, Parameters(p): Parameters<ExportParams>) -> CallToolResult {
         let res = async {
-            let out = export::export(&self.app, p.guild.as_deref(), &date::today(&SystemClock)).await?;
+            let dir = p.assets_dir.as_deref().map(|d| assets::writable_dir(&self.app.policy, d)).transpose()?;
+            let out =
+                export::export_to(&self.app, p.guild.as_deref(), &date::today(&SystemClock), dir.as_deref()).await?;
             if let Some(path) = &p.path {
                 export::write_file(Path::new(path), &out.toml, false)?;
             }
@@ -153,12 +172,29 @@ impl<P: DiscordPort + 'static> GuildsmithServer<P> {
         let mut sink = |e: &Progress| {
             let _ = tx.send(e.clone());
         };
-        let res = apply::apply(&self.app, p.guild.as_deref(), &p.toml, &p.plan_hash, &mut sink).await;
+        let file = match p.path.as_deref().map(|f| spec_file(&self.app.policy, f)).transpose() {
+            Ok(f) => f,
+            Err(e) => return respond::<ApplyReport>(Err(e), |_| String::new()),
+        };
+        let base = file.as_deref().and_then(Path::parent);
+        let caller = Caller::Mcp { base };
+        let mut res = apply::apply_in(&self.app, p.guild.as_deref(), &p.toml, &p.plan_hash, caller, &mut sink).await;
         drop(tx);
         if let Some(f) = forwarder {
             let _ = f.await;
         }
+        if let (Ok(report), Some(file)) = (&mut res, &file)
+            && let Err(e) = writeback::write_ids(file, &report.written_ids)
+        {
+            tracing::warn!(error = %e, "couldn't write ids back");
+            report.written_ids.clear();
+        }
         respond(res, |r| match &r.failed {
+            None if !r.secrets.is_empty() => format!(
+                "applied {} change(s). secrets holds new webhook URLs: give them only to the user, now; they aren't \
+                 shown again",
+                r.applied.len()
+            ),
             None => format!("applied {} change(s)", r.applied.len()),
             Some(f) => format!(
                 "stopped after {} change(s): `{}` failed ({}); {} skipped; plan again to see what's left",

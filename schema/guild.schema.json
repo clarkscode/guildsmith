@@ -1,5 +1,174 @@
 {
   "$defs": {
+    "Action": {
+      "description": "What a rule does when it matches. `R` is a channel reference.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Block the message, optionally telling the member why (≤ 150 characters).",
+          "properties": {
+            "block": {
+              "properties": {
+                "message": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "block"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Post an alert in a channel.",
+          "properties": {
+            "alert": {
+              "properties": {
+                "channel": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "channel"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "alert"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Time the member out (seconds, ≤ 2419200). Keyword and mention-spam rules only.",
+          "properties": {
+            "timeout": {
+              "properties": {
+                "duration": {
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "duration"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "timeout"
+          ],
+          "type": "object"
+        },
+        {
+          "const": "block_interaction",
+          "description": "Stop the member interacting until they fix their profile. Member-profile rules only.",
+          "type": "string"
+        }
+      ]
+    },
+    "Asset": {
+      "anyOf": [
+        {
+          "description": "A local file, relative to the spec file (or a path under `GUILDSMITH_FILE_ROOTS`).",
+          "properties": {
+            "file": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "An `http(s)` URL, fetched when needed.",
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Inline base64, or a `data:` URI.",
+          "properties": {
+            "data": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "data"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Where an asset's bytes come from."
+    },
+    "AutomodRule": {
+      "additionalProperties": false,
+      "description": "One auto-moderation rule. `R` refers to channels and roles.",
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "exempt_channels": {
+          "description": "Channels the rule ignores (≤ 50).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "exempt_roles": {
+          "description": "Roles the rule ignores (≤ 20).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Written by export. Without it, the rule is matched by name."
+        },
+        "name": {
+          "description": "1–100 characters.",
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/Trigger"
+        }
+      },
+      "required": [
+        "name",
+        "trigger",
+        "actions"
+      ],
+      "type": "object"
+    },
     "CategorySpec": {
       "additionalProperties": false,
       "description": "`[[categories]]`.",
@@ -175,6 +344,205 @@
       "pattern": "^#[0-9A-Fa-f]{6}$",
       "type": "string"
     },
+    "ContentFilter": {
+      "description": "Which members' media is scanned.",
+      "enum": [
+        "disabled",
+        "members_without_roles",
+        "all_members"
+      ],
+      "type": "string"
+    },
+    "EmojiSpec": {
+      "additionalProperties": false,
+      "description": "`[[emoji]]`: a custom emoji.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Written back by apply. Without it, the emoji is matched by name."
+        },
+        "image": {
+          "$ref": "#/$defs/Asset",
+          "description": "PNG, JPEG, GIF, WebP or AVIF, at most 256 KiB: {file}, {url} or {data}."
+        },
+        "name": {
+          "description": "2–32 characters: letters, digits and `_`.",
+          "type": "string"
+        },
+        "roles": {
+          "description": "Roles allowed to use it (`@Role`); empty = everyone.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "image"
+      ],
+      "type": "object"
+    },
+    "EventSpec": {
+      "additionalProperties": false,
+      "description": "`[[events]]`: a scheduled event.",
+      "properties": {
+        "description": {
+          "description": "At most 1000 characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpecTime"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Required for external events."
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Written back by apply. Without it, the event is matched by name."
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Asset"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Cover image: {file}, {url} or {data}."
+        },
+        "location": {
+          "$ref": "#/$defs/LocationSpec"
+        },
+        "name": {
+          "description": "1–100 characters.",
+          "type": "string"
+        },
+        "recurrence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Recurrence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "start": {
+          "$ref": "#/$defs/SpecTime"
+        }
+      },
+      "required": [
+        "name",
+        "start",
+        "location"
+      ],
+      "type": "object"
+    },
+    "FeaturesSpec": {
+      "additionalProperties": false,
+      "description": "Server features a server can switch itself (COMMUNITY and DISCOVERABLE need Administrator).",
+      "properties": {
+        "community": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "discoverable": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "invites_disabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "raid_alerts_disabled": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "FixedMessageSpec": {
+      "additionalProperties": false,
+      "description": "`[[messages]]`: a message the bot posted, kept as written.",
+      "properties": {
+        "channel": {
+          "description": "`#name` or an id.",
+          "type": "string"
+        },
+        "components_v2": {
+          "description": "A Components V2 layout (an array of components). Excludes `content` and `embeds`."
+        },
+        "content": {
+          "description": "At most 2000 characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "embeds": {
+          "description": "Discord embed objects, at most 10.",
+          "items": true,
+          "type": "array"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Written back by apply. Without it, the message is matched by exact content and embeds\namong the bot's last 100 messages in the channel."
+        },
+        "pinned": {
+          "type": "boolean"
+        },
+        "suppress_embeds": {
+          "description": "Hide link previews.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
     "ForumTag": {
       "additionalProperties": false,
       "description": "A forum or media tag.",
@@ -213,7 +581,7 @@
     },
     "GuildInfo": {
       "additionalProperties": false,
-      "description": "`[guild]`: informational unless `manage_settings = true` (rejected in v1).",
+      "description": "`[guild]`: informational unless `manage_settings = true`, which turns on `[guild.settings]`.",
       "properties": {
         "id": {
           "anyOf": [
@@ -226,7 +594,7 @@
           ]
         },
         "manage_settings": {
-          "description": "Reserved. v1 rejects `true` (research R21).",
+          "description": "Turns on `[guild.settings]`.",
           "type": "boolean"
         },
         "name": {
@@ -234,6 +602,17 @@
             "string",
             "null"
           ]
+        },
+        "settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SettingsSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Server settings, used only when `manage_settings = true`."
         }
       },
       "type": "object"
@@ -242,6 +621,257 @@
       "description": "A Discord id (snowflake) as a decimal string.",
       "pattern": "^[0-9]{1,20}$",
       "type": "string"
+    },
+    "InviteSpec": {
+      "additionalProperties": false,
+      "description": "`[[invites]]`.",
+      "properties": {
+        "channel": {
+          "description": "The channel it opens on (`#name` or an id).",
+          "type": "string"
+        },
+        "code": {
+          "description": "Written back by apply. Without it, the invite is matched by its signature: channel,\n`max_age`, `max_uses`, temporary and roles.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "max_age": {
+          "description": "Seconds, 0–604800; 0 never expires. Default 86400 (a day).",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_uses": {
+          "description": "0–100; 0 is unlimited.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "recreate": {
+          "description": "Make a new invite when this one has expired or was deleted. Default false: report it.",
+          "type": "boolean"
+        },
+        "roles": {
+          "description": "Roles new members get (`@Role`).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "temporary": {
+          "description": "Members who join through it are kicked when they go offline, unless given a role.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
+    "Keywords": {
+      "additionalProperties": false,
+      "description": "Words, patterns and exceptions for keyword and member-profile rules.",
+      "properties": {
+        "allow": {
+          "description": "Exceptions (≤ 100).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "keywords": {
+          "description": "Words or phrases, with `*` wildcards (≤ 1000 × 60 characters).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "regex": {
+          "description": "Rust-flavored regular expressions (≤ 10 × 260 characters).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "LocationSpec": {
+      "description": "Where an event happens: `{ voice = \"Lobby\" }`, `{ stage = \"Town Hall\" }` or\n`{ external = { place = \"The park\" } }`.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A voice channel (name or id).",
+          "properties": {
+            "voice": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "voice"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A stage channel (name or id).",
+          "properties": {
+            "stage": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "stage"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A place outside Discord; the event needs an `end`.",
+          "properties": {
+            "external": {
+              "additionalProperties": false,
+              "properties": {
+                "place": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "place"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "external"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "NWeekday": {
+      "additionalProperties": false,
+      "properties": {
+        "day": {
+          "type": "string"
+        },
+        "n": {
+          "description": "1-5.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "n",
+        "day"
+      ],
+      "type": "object"
+    },
+    "Notifications": {
+      "description": "Default notification setting for members.",
+      "enum": [
+        "all_messages",
+        "only_mentions"
+      ],
+      "type": "string"
+    },
+    "OnboardingMode": {
+      "description": "How new members get channels.",
+      "oneOf": [
+        {
+          "const": "default_channels",
+          "description": "Only the default channels count toward the requirements.",
+          "type": "string"
+        },
+        {
+          "const": "advanced",
+          "description": "Channels from prompts count too.",
+          "type": "string"
+        }
+      ]
+    },
+    "OnboardingSpec": {
+      "additionalProperties": false,
+      "description": "`[onboarding]`.",
+      "properties": {
+        "default_channels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/OnboardingMode",
+          "default": "default_channels"
+        },
+        "prompts": {
+          "items": {
+            "$ref": "#/$defs/PromptSpec"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "OptionSpec": {
+      "additionalProperties": false,
+      "description": "One answer to a prompt.",
+      "properties": {
+        "channels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "description": {
+          "description": "Up to 100 characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "emoji": {
+          "description": "A unicode emoji or a custom emoji id.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "description": "1–50 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "type": "object"
     },
     "OverwriteSpec": {
       "additionalProperties": false,
@@ -331,10 +961,76 @@
       "type": "array",
       "uniqueItems": true
     },
+    "Preset": {
+      "description": "Discord's built-in word lists.",
+      "enum": [
+        "profanity",
+        "sexual_content",
+        "slurs"
+      ],
+      "type": "string"
+    },
+    "PromptKind": {
+      "description": "How a prompt is shown.",
+      "enum": [
+        "multiple_choice",
+        "dropdown"
+      ],
+      "type": "string"
+    },
+    "PromptSpec": {
+      "additionalProperties": false,
+      "description": "One onboarding question.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "in_onboarding": {
+          "description": "Shown during onboarding (otherwise only in Channels & Roles).",
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/PromptKind",
+          "default": "multiple_choice"
+        },
+        "options": {
+          "description": "1–50 options.",
+          "items": {
+            "$ref": "#/$defs/OptionSpec"
+          },
+          "type": "array"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "single_select": {
+          "type": "boolean"
+        },
+        "title": {
+          "description": "1–100 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "options"
+      ],
+      "type": "object"
+    },
     "PruneSpec": {
       "additionalProperties": false,
       "description": "`[prune]`: which unmanaged kinds may be deleted.",
       "properties": {
+        "automod": {
+          "type": "boolean"
+        },
         "categories": {
           "default": false,
           "type": "boolean"
@@ -343,11 +1039,100 @@
           "default": false,
           "type": "boolean"
         },
+        "emoji": {
+          "type": "boolean"
+        },
+        "events": {
+          "type": "boolean"
+        },
+        "invites": {
+          "type": "boolean"
+        },
+        "messages": {
+          "type": "boolean"
+        },
         "roles": {
           "default": false,
           "type": "boolean"
+        },
+        "sounds": {
+          "type": "boolean"
+        },
+        "stickers": {
+          "type": "boolean"
+        },
+        "webhooks": {
+          "type": "boolean"
         }
       },
+      "type": "object"
+    },
+    "Recurrence": {
+      "additionalProperties": false,
+      "description": "How an event repeats (Discord's limits: no count or end, one by-* entry, an interval only\nfor weekly events).",
+      "properties": {
+        "frequency": {
+          "description": "daily, weekly, monthly or yearly.",
+          "type": "string"
+        },
+        "interval": {
+          "description": "Weekly only: 1 or 2 (every other week).",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "month": {
+          "description": "Yearly: the month (1-12) and day of the month.",
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "month_day": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "n_weekday": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NWeekday"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Monthly: the nth weekday, e.g. {n: 2, day: \"tuesday\"}."
+        },
+        "weekday": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Weekly: one day; daily: a set of days (e.g. weekdays)."
+        }
+      },
+      "required": [
+        "frequency"
+      ],
       "type": "object"
     },
     "RoleSpec": {
@@ -422,10 +1207,454 @@
       ],
       "type": "object"
     },
+    "SettingsSpec": {
+      "additionalProperties": false,
+      "description": "`[guild.settings]`. Every field is optional: unset means not managed.",
+      "properties": {
+        "afk_channel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "afk_timeout": {
+          "description": "60, 300, 900, 1800 or 3600 seconds.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "banner": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Asset"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default_notifications": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Notifications"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "description": "Up to 120 characters (community servers).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "explicit_content_filter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContentFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "features": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeaturesSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Asset"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "description": "2–100 characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "preferred_locale": {
+          "description": "e.g. `en-US`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "premium_progress_bar": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "public_updates_channel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rules_channel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "safety_alerts_channel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "splash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Asset"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "system_channel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "system_channel_flags": {
+          "description": "Names from `SYSTEM_FLAGS`, e.g. `suppress_join_notifications`.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "verification_level": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VerificationLevel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "SoundSpec": {
+      "additionalProperties": false,
+      "description": "`[[sounds]]`: a soundboard sound.",
+      "properties": {
+        "emoji": {
+          "description": "A unicode emoji or a custom emoji id.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "description": "2–32 characters.",
+          "type": "string"
+        },
+        "sound": {
+          "$ref": "#/$defs/Asset",
+          "description": "MP3 or Ogg, at most 512 KiB and 5.2 seconds."
+        },
+        "volume": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Volume"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "0–1; Discord's default is 1."
+        }
+      },
+      "required": [
+        "name",
+        "sound"
+      ],
+      "type": "object"
+    },
+    "SpecTime": {
+      "description": "A date and time with a UTC offset, e.g. 2026-10-23T20:00:00-07:00.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "StickerSpec": {
+      "additionalProperties": false,
+      "description": "`[[stickers]]`: a custom sticker.",
+      "properties": {
+        "description": {
+          "description": "Empty, or 2–100 characters.",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "image": {
+          "$ref": "#/$defs/Asset",
+          "description": "PNG, APNG, GIF or Lottie JSON, at most 512 KiB."
+        },
+        "name": {
+          "description": "2–30 characters.",
+          "type": "string"
+        },
+        "tags": {
+          "description": "Autocomplete tags (e.g. a related emoji name), at most 200 characters.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "tags",
+        "image"
+      ],
+      "type": "object"
+    },
     "Target": {
       "description": "`@everyone`, `@RoleName`, `role:<id>` or `member:<id>`.",
       "pattern": "^(@.+|role:[0-9]{1,20}|member:[0-9]{1,20})$",
       "type": "string"
+    },
+    "Trigger": {
+      "description": "What a rule looks for.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "keyword": {
+              "$ref": "#/$defs/Keywords"
+            }
+          },
+          "required": [
+            "keyword"
+          ],
+          "type": "object"
+        },
+        {
+          "const": "spam",
+          "description": "Discord's spam detection.",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "preset": {
+              "properties": {
+                "allow": {
+                  "description": "Exceptions (≤ 1000).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "presets": {
+                  "items": {
+                    "$ref": "#/$defs/Preset"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "presets"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "preset"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "mention_spam": {
+              "properties": {
+                "limit": {
+                  "description": "Unique role and user mentions per message (≤ 50).",
+                  "format": "uint8",
+                  "maximum": 255,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "raid_protection": {
+                  "description": "Also detect mention raids.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "limit"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "mention_spam"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Names and profile text of members.",
+          "properties": {
+            "member_profile": {
+              "$ref": "#/$defs/Keywords"
+            }
+          },
+          "required": [
+            "member_profile"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "VerificationLevel": {
+      "description": "Who can talk before verifying.",
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "very_high"
+      ],
+      "type": "string"
+    },
+    "Volume": {
+      "description": "A sound's volume, 0–1. Compared exactly, so it can sit in plans (`Eq`).",
+      "format": "double",
+      "type": "number"
+    },
+    "WebhookSpec": {
+      "additionalProperties": false,
+      "description": "`[[webhooks]]`: an incoming webhook. There is no `url` or `token` field, ever.",
+      "properties": {
+        "avatar": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Asset"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "channel": {
+          "description": "The channel it posts to (`#name` or an id).",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Id"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Written back by apply. Without it, the webhook is matched by name."
+        },
+        "name": {
+          "description": "1–80 characters, without \"clyde\" or \"discord\".",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "channel"
+      ],
+      "type": "object"
+    },
+    "WelcomeChannelSpec": {
+      "additionalProperties": false,
+      "description": "One suggested channel.",
+      "properties": {
+        "channel": {
+          "description": "`#name` or an id.",
+          "type": "string"
+        },
+        "description": {
+          "description": "1–42 characters.",
+          "type": "string"
+        },
+        "emoji": {
+          "description": "A unicode emoji or a custom emoji id.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "channel",
+        "description"
+      ],
+      "type": "object"
+    },
+    "WelcomeScreenSpec": {
+      "additionalProperties": false,
+      "description": "`[welcome_screen]`.",
+      "properties": {
+        "channels": {
+          "items": {
+            "$ref": "#/$defs/WelcomeChannelSpec"
+          },
+          "type": "array"
+        },
+        "description": {
+          "description": "Up to 140 characters.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
     }
   },
   "$id": "https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json",
@@ -433,6 +1662,13 @@
   "additionalProperties": false,
   "description": "The whole spec file.",
   "properties": {
+    "automod": {
+      "description": "Auto-moderation rules. Channels are `#name`, roles `@Name` (or ids).",
+      "items": {
+        "$ref": "#/$defs/AutomodRule"
+      },
+      "type": "array"
+    },
     "categories": {
       "description": "Categories with their channels.",
       "items": {
@@ -447,10 +1683,47 @@
       },
       "type": "array"
     },
+    "emoji": {
+      "items": {
+        "$ref": "#/$defs/EmojiSpec"
+      },
+      "type": "array"
+    },
+    "events": {
+      "description": "Scheduled events.",
+      "items": {
+        "$ref": "#/$defs/EventSpec"
+      },
+      "type": "array"
+    },
     "guild": {
       "$ref": "#/$defs/GuildInfo",
       "default": {},
       "description": "Server information. Informational only in v1 (research R21)."
+    },
+    "invites": {
+      "items": {
+        "$ref": "#/$defs/InviteSpec"
+      },
+      "type": "array"
+    },
+    "messages": {
+      "description": "Fixed messages the bot posts, such as a rules post.",
+      "items": {
+        "$ref": "#/$defs/FixedMessageSpec"
+      },
+      "type": "array"
+    },
+    "onboarding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OnboardingSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Questions and default channels for new members (Community servers)."
     },
     "prune": {
       "$ref": "#/$defs/PruneSpec",
@@ -467,6 +1740,36 @@
         "$ref": "#/$defs/RoleSpec"
       },
       "type": "array"
+    },
+    "sounds": {
+      "items": {
+        "$ref": "#/$defs/SoundSpec"
+      },
+      "type": "array"
+    },
+    "stickers": {
+      "items": {
+        "$ref": "#/$defs/StickerSpec"
+      },
+      "type": "array"
+    },
+    "webhooks": {
+      "description": "Incoming webhooks: never a token or URL.",
+      "items": {
+        "$ref": "#/$defs/WebhookSpec"
+      },
+      "type": "array"
+    },
+    "welcome_screen": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WelcomeScreenSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The welcome screen (Community servers)."
     }
   },
   "title": "guildsmith spec file (guild.toml)",

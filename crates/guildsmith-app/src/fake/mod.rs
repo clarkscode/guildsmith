@@ -4,8 +4,13 @@
 //! to the server id) can't be deleted or renamed, managed roles can't be deleted, and a bulk
 //! channel reorder may change at most one `parent_id`. Every write is recorded with its reason,
 //! and failures can be injected.
+//!
+//! Each tool group keeps its own state in the server's typed resource store
+//! ([`Resources`]), so a group's fake lives in its own `fake/<group>.rs`.
 
+use std::any::{Any, TypeId};
 use std::collections::BTreeMap;
+use std::fmt;
 use std::sync::Mutex;
 
 use guildsmith_core::snapshot::{Completeness, LiveChannel, LiveChannelKind, LiveRole, LiveTag, Snapshot};
@@ -17,6 +22,20 @@ use crate::ports::{
     RoleFields, RolePosition,
 };
 
+mod assets;
+pub mod automod;
+pub mod events;
+pub mod expressions;
+pub mod invites;
+pub mod messages;
+pub mod moderation;
+pub mod polls;
+mod raw;
+pub mod settings;
+pub mod threads;
+pub mod voice;
+pub mod webhooks;
+
 /// One recorded write.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WriteRecord {
@@ -26,27 +45,73 @@ pub struct WriteRecord {
     pub reason: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-struct FakeGuild {
-    snapshot: Snapshot,
-    members: Vec<Member>,
-    messages: BTreeMap<Id, Vec<Message>>,
-    bans: Vec<Id>,
+/// Per-server state for each tool group, keyed by type. A group stores one `Default` struct.
+#[derive(Default)]
+pub(crate) struct Resources(BTreeMap<TypeId, Box<dyn Any + Send + Sync>>);
+
+impl Resources {
+    /// The group's state, created empty on first use.
+    pub(crate) fn get<T: Default + Send + Sync + 'static>(&mut self) -> &mut T {
+        self.0
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(T::default()))
+            .downcast_mut::<T>()
+            .expect("keyed by its own type")
+    }
+
+    /// The group's state, if it has any.
+    pub(crate) fn peek<T: 'static>(&self) -> Option<&T> {
+        self.0.get(&TypeId::of::<T>()).and_then(|b| b.downcast_ref::<T>())
+    }
+}
+
+impl fmt::Debug for Resources {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Resources({} kinds)", self.0.len())
+    }
 }
 
 #[derive(Debug)]
-struct State {
-    user: CurrentUser,
-    guilds: BTreeMap<Id, FakeGuild>,
+pub(crate) struct FakeGuild {
+    pub(crate) snapshot: Snapshot,
+    pub(crate) members: Vec<Member>,
+    pub(crate) messages: BTreeMap<Id, Vec<Message>>,
+    pub(crate) bans: Vec<Id>,
+    pub(crate) res: Resources,
+}
+
+#[derive(Debug)]
+pub(crate) struct State {
+    pub(crate) user: CurrentUser,
+    pub(crate) guilds: BTreeMap<Id, FakeGuild>,
     writes: Vec<WriteRecord>,
     reads: usize,
     /// Fail the n-th write (1-based, counting every write ever made).
     fail_write_at: Option<usize>,
     /// Fail the next call of this method name.
     fail_method: Option<&'static str>,
+    /// Fail every call of a method, optionally only for one target, until cleared.
+    fail_on: Vec<(&'static str, Option<Id>)>,
     /// Every call fails with `Unauthorized`.
     invalid_token: bool,
-    next_id: u64,
+    /// The bot application's flags (intents); `MESSAGE_CONTENT` is on by default.
+    app_flags: u64,
+    /// The fake's "now", in Unix seconds (for message age rules).
+    now: i64,
+    urls: BTreeMap<String, Vec<u8>>,
+    raw_routes: raw::RawRoutes,
+    public_templates: settings::PublicTemplates,
+    raw_log: raw::RawLog,
+    pub(crate) next_id: u64,
+}
+
+/// The fake's default "now": 2026-10-19T12:00:00Z, the time its messages are posted.
+pub const FAKE_NOW: i64 = 1_792_411_200;
+
+/// The next fake id.
+pub(crate) fn next_id(next: &mut u64) -> Id {
+    *next += 1;
+    Id(*next)
 }
 
 /// An in-memory Discord.
@@ -55,7 +120,7 @@ pub struct FakeDiscord {
     state: Mutex<State>,
 }
 
-fn not_found(what: &str, id: Id) -> PortError {
+pub(crate) fn not_found(what: &str, id: Id) -> PortError {
     PortError::NotFound(format!("{what} {id}"))
 }
 
@@ -84,11 +149,11 @@ impl FakeGuild {
         s.completeness = if admin { Completeness::Complete } else { Completeness::MaybeIncomplete };
     }
 
-    fn bot_can(&self, p: Permission) -> PortResult<()> {
+    pub(crate) fn bot_can(&self, p: Permission) -> PortResult<()> {
         if self.snapshot.bot.permissions.contains(p) { Ok(()) } else { Err(PortError::Forbidden(p.name().to_owned())) }
     }
 
-    fn role_below_bot(&self, role: Id) -> PortResult<&LiveRole> {
+    pub(crate) fn role_below_bot(&self, role: Id) -> PortResult<&LiveRole> {
         let r = self.snapshot.role(role).ok_or_else(|| not_found("role", role))?;
         if self.snapshot.bot.user_id != self.snapshot.guild.owner_id
             && r.position >= self.snapshot.bot.top_role_position
@@ -159,7 +224,8 @@ impl FakeDiscord {
         let bot_id = guilds.first().map_or(Id(2), |(s, _)| s.bot.user_id);
         let mut map = BTreeMap::new();
         for (snapshot, members) in guilds {
-            let mut g = FakeGuild { snapshot, members, messages: BTreeMap::new(), bans: Vec::new() };
+            let mut g =
+                FakeGuild { snapshot, members, messages: BTreeMap::new(), bans: Vec::new(), res: Resources::default() };
             g.recompute_bot();
             map.insert(g.snapshot.guild.id, g);
         }
@@ -171,13 +237,20 @@ impl FakeDiscord {
                 reads: 0,
                 fail_write_at: None,
                 fail_method: None,
+                fail_on: Vec::new(),
                 invalid_token: false,
+                app_flags: crate::preflight::MESSAGE_CONTENT_FLAGS,
+                now: FAKE_NOW,
+                urls: BTreeMap::new(),
+                raw_routes: raw::RawRoutes::default(),
+                public_templates: settings::PublicTemplates::default(),
+                raw_log: raw::RawLog::default(),
                 next_id: 5_000_000,
             }),
         }
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, State> {
+    pub(crate) fn lock(&self) -> std::sync::MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
@@ -201,6 +274,47 @@ impl FakeDiscord {
     /// Fails the next call of `method` (e.g. `"snapshot"`, `"create_role"`).
     pub fn fail_next(&self, method: &'static str) {
         self.lock().fail_method = Some(method);
+    }
+
+    /// Fails every call of `method` for `target` (or for any target with `None`) until
+    /// [`FakeDiscord::clear_failures`]. Lets a bulk test fail one item while the rest run.
+    pub fn fail_on(&self, method: &'static str, target: Option<Id>) {
+        self.lock().fail_on.push((method, target));
+    }
+
+    /// Removes every injected failure.
+    pub fn clear_failures(&self) {
+        let mut st = self.lock();
+        st.fail_on.clear();
+        st.fail_method = None;
+        st.fail_write_at = None;
+    }
+
+    /// Sets the fake's "now" (Unix seconds).
+    pub fn set_now(&self, secs: i64) {
+        self.lock().now = secs;
+    }
+
+    pub(crate) fn now_secs(&self) -> i64 {
+        self.lock().now
+    }
+
+    /// Sets the bot application's flags (e.g. `0` to turn `MESSAGE_CONTENT` off).
+    pub fn set_app_flags(&self, flags: u64) {
+        self.lock().app_flags = flags;
+    }
+
+    /// Edits a server's group state directly, as if it changed in Discord (not a write).
+    pub fn edit_res<T: Default + Send + Sync + 'static>(&self, guild: Id, f: impl FnOnce(&mut T)) {
+        if let Some(g) = self.lock().guilds.get_mut(&guild) {
+            f(g.res.get::<T>());
+        }
+    }
+
+    /// A copy of a server's group state.
+    #[must_use]
+    pub fn res<T: Default + Clone + Send + Sync + 'static>(&self, guild: Id) -> T {
+        self.lock().guilds.get(&guild).and_then(|g| g.res.peek::<T>().cloned()).unwrap_or_default()
     }
 
     /// Every write so far, in order.
@@ -247,7 +361,7 @@ impl FakeDiscord {
         }
     }
 
-    fn check_fail(st: &mut State, method: &'static str) -> PortResult<()> {
+    fn check_fail(st: &mut State, method: &'static str, target: Option<Id>) -> PortResult<()> {
         if st.invalid_token {
             return Err(PortError::Unauthorized);
         }
@@ -259,17 +373,35 @@ impl FakeDiscord {
             st.fail_method = None;
             return Err(server_error());
         }
+        if st.fail_on.iter().any(|(m, t)| *m == method && (t.is_none() || *t == target)) {
+            return Err(server_error());
+        }
         Ok(())
     }
 
-    fn read<T>(&self, method: &'static str, f: impl FnOnce(&State) -> PortResult<T>) -> PortResult<T> {
+    pub(crate) fn read<T>(&self, method: &'static str, f: impl FnOnce(&State) -> PortResult<T>) -> PortResult<T> {
         let mut st = self.lock();
-        Self::check_fail(&mut st, method)?;
+        Self::check_fail(&mut st, method, None)?;
         st.reads += 1;
         f(&st)
     }
 
-    fn write<T>(
+    /// A read of one server's state.
+    pub(crate) fn read_guild<T>(
+        &self,
+        method: &'static str,
+        guild: Id,
+        target: Option<Id>,
+        f: impl FnOnce(&FakeGuild) -> PortResult<T>,
+    ) -> PortResult<T> {
+        let mut st = self.lock();
+        Self::check_fail(&mut st, method, target)?;
+        st.reads += 1;
+        let g = st.guilds.get(&guild).ok_or(PortError::NotInGuild(guild))?;
+        f(g)
+    }
+
+    pub(crate) fn write<T>(
         &self,
         method: &'static str,
         guild: Id,
@@ -278,7 +410,7 @@ impl FakeDiscord {
         f: impl FnOnce(&mut FakeGuild, &mut u64) -> PortResult<T>,
     ) -> PortResult<T> {
         let mut st = self.lock();
-        Self::check_fail(&mut st, method)?;
+        Self::check_fail(&mut st, method, target)?;
         if st.fail_write_at == Some(st.writes.len() + 1) {
             st.fail_write_at = None;
             return Err(server_error());
@@ -292,11 +424,29 @@ impl FakeDiscord {
         Ok(out)
     }
 
-    fn guild_of_channel(&self, channel: Id) -> PortResult<Id> {
+    /// Records a write that no server's state holds (e.g. a raw request).
+    pub(crate) fn record_write(
+        &self,
+        method: &'static str,
+        guild: Option<Id>,
+        target: Option<Id>,
+        reason: Option<&str>,
+    ) -> PortResult<()> {
+        let mut st = self.lock();
+        Self::check_fail(&mut st, method, target)?;
+        st.writes.push(WriteRecord { method, guild, target, reason: reason.map(str::to_owned) });
+        Ok(())
+    }
+
+    /// The server a channel or thread is in.
+    pub(crate) fn guild_of_channel(&self, channel: Id) -> PortResult<Id> {
         self.lock()
             .guilds
             .values()
-            .find(|g| g.snapshot.channel(channel).is_some())
+            .find(|g| {
+                g.snapshot.channel(channel).is_some()
+                    || g.res.peek::<threads::ThreadsState>().is_some_and(|t| t.threads.contains_key(&channel))
+            })
             .map(|g| g.snapshot.guild.id)
             .ok_or_else(|| not_found("channel", channel))
     }
@@ -307,6 +457,10 @@ impl FakeDiscord {
 impl DiscordPort for FakeDiscord {
     async fn current_user(&self) -> PortResult<CurrentUser> {
         self.read("current_user", |st| Ok(st.user.clone()))
+    }
+
+    async fn application_flags(&self) -> PortResult<u64> {
+        self.read("application_flags", |st| Ok(st.app_flags))
     }
 
     async fn list_guilds(&self) -> PortResult<Vec<GuildSummary>> {
@@ -532,6 +686,13 @@ impl DiscordPort for FakeDiscord {
 
     async fn delete_channel(&self, guild: Id, channel: Id, reason: &str) -> PortResult<()> {
         self.write("delete_channel", guild, Some(channel), Some(reason), |g, _| {
+            // A thread: Manage Threads is enough.
+            if g.res.peek::<threads::ThreadsState>().is_some_and(|t| t.threads.contains_key(&channel)) {
+                g.bot_can(Permission::ManageThreads)?;
+                g.res.get::<threads::ThreadsState>().threads.remove(&channel);
+                g.messages.remove(&channel);
+                return Ok(());
+            }
             g.bot_can(Permission::ManageChannels)?;
             g.snapshot.channel(channel).ok_or_else(|| not_found("channel", channel))?;
             g.snapshot.channels.retain(|c| c.id != channel);

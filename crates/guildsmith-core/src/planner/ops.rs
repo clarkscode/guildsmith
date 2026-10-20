@@ -8,10 +8,18 @@ use std::fmt;
 
 use serde::Serialize;
 
+use std::collections::BTreeSet;
+
+use serde_json::Value;
+
+use crate::asset::Asset;
 use crate::id::Id;
+use crate::live::ExpressionKind;
 use crate::permissions::PermissionSet;
 use crate::snapshot::{LiveChannelKind, OverwriteKind};
-use crate::spec::ForumTag;
+use crate::spec::automod::AutomodRule;
+use crate::spec::expressions::Volume;
+use crate::spec::{ForumTag, SpecPath};
 
 /// An existing item, or one created earlier in the same plan.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
@@ -156,6 +164,209 @@ pub struct ScopeOrder {
     pub order: Vec<ChannelSlot>,
 }
 
+/// A file to upload, with the blake3 the plan was made with (apply checks it again).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FileOp {
+    pub asset: Asset,
+    pub hash: String,
+}
+
+/// Server settings to set (`None` leaves a field alone; `Some(None)` clears it).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[allow(clippy::option_option)] // three states: leave alone, clear, set
+pub struct SettingsSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<Option<FileOp>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub banner: Option<Option<FileOp>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub splash: Option<Option<FileOp>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_channel: Option<Option<Ref>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_channel_flags: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rules_channel: Option<Option<Ref>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public_updates_channel: Option<Option<Ref>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safety_alerts_channel: Option<Option<Ref>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub afk_channel: Option<Option<Ref>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub afk_timeout: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_level: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_notifications: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub explicit_content_filter: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferred_locale: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub premium_progress_bar: Option<bool>,
+    /// The whole feature list after the change.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub features: Option<BTreeSet<String>>,
+}
+
+/// One onboarding option to set. `id` is kept for existing options; apply makes new ones.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct OptionSet {
+    pub id: Option<Id>,
+    pub title: String,
+    pub description: Option<String>,
+    pub emoji: Option<String>,
+    pub roles: Vec<Ref>,
+    pub channels: Vec<Ref>,
+}
+
+/// One onboarding prompt to set.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PromptSet {
+    pub id: Option<Id>,
+    pub title: String,
+    /// 0 multiple choice, 1 dropdown.
+    pub kind: u8,
+    pub single_select: bool,
+    pub required: bool,
+    pub in_onboarding: bool,
+    pub options: Vec<OptionSet>,
+}
+
+/// The whole onboarding, replaced in one request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct OnboardingSet {
+    pub enabled: bool,
+    /// 0 default channels only, 1 advanced.
+    pub mode: u8,
+    pub default_channels: Vec<Ref>,
+    pub prompts: Vec<PromptSet>,
+}
+
+/// One welcome screen channel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WelcomeChannelSet {
+    pub channel: Ref,
+    pub description: String,
+    pub emoji: Option<String>,
+}
+
+/// The whole welcome screen, replaced in one request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WelcomeSet {
+    pub enabled: bool,
+    pub description: Option<String>,
+    pub channels: Vec<WelcomeChannelSet>,
+}
+
+/// An emoji, sticker or sound to upload.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct NewExpressionOp {
+    pub name: String,
+    pub file: FileOp,
+    /// Emoji: roles allowed to use it.
+    pub roles: Vec<Ref>,
+    /// Stickers.
+    pub description: String,
+    pub tags: String,
+    /// Sounds.
+    pub volume: Option<Volume>,
+    pub emoji: Option<String>,
+}
+
+/// Expression fields to change. `None` leaves a field alone.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[allow(clippy::option_option)] // three states: leave alone, clear, set
+pub struct ExpressionSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<Ref>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volume: Option<Volume>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub emoji: Option<Option<String>>,
+}
+
+/// Where an event happens, with its channel possibly not created yet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LocationSet {
+    Voice(Ref),
+    Stage(Ref),
+    External(String),
+}
+
+/// Event fields to set. `None` leaves a field alone.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[allow(clippy::option_option)] // three states: leave alone, clear, set
+pub struct EventSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<Option<String>>,
+    /// RFC 3339, UTC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<LocationSet>,
+    /// Discord's `recurrence_rule`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recurrence: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<FileOp>,
+}
+
+/// A fixed message's body.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct MessageBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub embeds: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub components: Option<Value>,
+    /// Discord message flags (suppress embeds, Components V2).
+    pub flags: u64,
+}
+
+/// What an id written back into the spec file is.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Written {
+    /// Known now: a live item the spec matched without an id.
+    Id(Id),
+    Code(String),
+    /// Made by the create op with this key; known after apply.
+    New(String),
+}
+
+/// One `id = "…"` (or `code = "…"`) line to add to the spec file (research E9).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WriteId {
+    /// The item, e.g. `emoji[0]`.
+    #[serde(serialize_with = "path_text")]
+    pub path: SpecPath,
+    /// `id`, or `code` for invites.
+    pub field: &'static str,
+    pub value: Written,
+}
+
+fn path_text<S: serde::Serializer>(p: &SpecPath, s: S) -> Result<S::Ok, S::Error> {
+    s.collect_str(p)
+}
+
 /// What an op does.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
@@ -203,6 +414,109 @@ pub enum OpKind {
     DeleteRole {
         id: Id,
     },
+    UpdateSettings {
+        changes: Vec<FieldChange>,
+        set: Box<SettingsSet>,
+    },
+    CreateAutomod {
+        key: String,
+        rule: AutomodRule<Ref>,
+    },
+    /// Replaces the rule's settings (the trigger type can't change).
+    UpdateAutomod {
+        id: Id,
+        changes: Vec<FieldChange>,
+        rule: AutomodRule<Ref>,
+    },
+    DeleteAutomod {
+        id: Id,
+    },
+    SetOnboarding {
+        onboarding: OnboardingSet,
+    },
+    SetWelcomeScreen {
+        screen: WelcomeSet,
+    },
+    CreateExpression {
+        kind: ExpressionKind,
+        key: String,
+        new: Box<NewExpressionOp>,
+    },
+    UpdateExpression {
+        kind: ExpressionKind,
+        id: Id,
+        changes: Vec<FieldChange>,
+        set: ExpressionSet,
+    },
+    DeleteExpression {
+        kind: ExpressionKind,
+        id: Id,
+    },
+    /// The new webhook's URL is a secret, reported once by apply (research E8).
+    CreateWebhook {
+        key: String,
+        name: String,
+        channel: Ref,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        avatar: Option<FileOp>,
+    },
+    UpdateWebhook {
+        id: Id,
+        changes: Vec<FieldChange>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        channel: Option<Ref>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        avatar: Option<FileOp>,
+    },
+    DeleteWebhook {
+        id: Id,
+    },
+    CreateInvite {
+        key: String,
+        channel: Ref,
+        max_age: u32,
+        max_uses: u32,
+        temporary: bool,
+        roles: Vec<Ref>,
+    },
+    DeleteInvite {
+        code: String,
+    },
+    CreateEvent {
+        key: String,
+        set: Box<EventSet>,
+    },
+    UpdateEvent {
+        id: Id,
+        changes: Vec<FieldChange>,
+        set: Box<EventSet>,
+    },
+    DeleteEvent {
+        id: Id,
+    },
+    PostMessage {
+        key: String,
+        channel: Ref,
+        body: MessageBody,
+        pin: bool,
+    },
+    EditMessage {
+        channel: Id,
+        id: Id,
+        changes: Vec<FieldChange>,
+        body: MessageBody,
+    },
+    SetPinned {
+        channel: Id,
+        id: Id,
+        pinned: bool,
+    },
+    DeleteMessage {
+        channel: Id,
+        id: Id,
+    },
 }
 
 /// One step of a plan.
@@ -222,7 +536,17 @@ pub struct Op {
 impl Op {
     #[must_use]
     pub fn is_delete(&self) -> bool {
-        matches!(self.kind, OpKind::DeleteChannel { .. } | OpKind::DeleteRole { .. })
+        matches!(
+            self.kind,
+            OpKind::DeleteChannel { .. }
+                | OpKind::DeleteRole { .. }
+                | OpKind::DeleteAutomod { .. }
+                | OpKind::DeleteExpression { .. }
+                | OpKind::DeleteWebhook { .. }
+                | OpKind::DeleteInvite { .. }
+                | OpKind::DeleteEvent { .. }
+                | OpKind::DeleteMessage { .. }
+        )
     }
 
     /// Every role this op's overwrites refer to.

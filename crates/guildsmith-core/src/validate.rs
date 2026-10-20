@@ -10,6 +10,8 @@ use crate::spec::{
 };
 use crate::suggest;
 
+mod kinds;
+
 pub const MAX_ROLES: usize = 250;
 pub const MAX_CHANNELS: usize = 500;
 pub const MAX_PER_CATEGORY: usize = 50;
@@ -238,12 +240,7 @@ fn check_category(ctx: &mut Ctx, i: usize, cat: &CategorySpec, role_names: &BTre
 #[must_use]
 pub fn validate(spec: &GuildSpec) -> Vec<(Severity, SpecPath, String, Option<String>)> {
     let mut ctx = Ctx { out: Vec::new() };
-    if spec.guild.manage_settings {
-        ctx.error(
-            SpecPath::root().key("guild").key("manage_settings"),
-            "managing server settings is not supported in v1",
-        );
-    }
+    kinds::check(&mut ctx, spec);
     let named: Vec<_> = spec.roles.iter().filter(|r| r.name != "@everyone").collect();
     if named.len() > MAX_ROLES {
         ctx.error(

@@ -251,3 +251,13 @@ messages, threads, polls, voice states, stage instances) can't appear in the fil
 
 Every optional group is at most 15 tools (SC-003). Description budget: 1,500 tokens per group
 and 15,000 for `all`, measured in CI the same way as v1-R16.
+
+## E-verification. Live checks (T063, T074)
+
+These settle the *(unverified)* items above. Each needs a live test server; the results are
+recorded here when run.
+
+| Check | Status | What the code does meanwhile |
+|---|---|---|
+| **T063**: does `GET webhooks/{id}` return `token` for incoming webhooks when the bot has MANAGE_WEBHOOKS? | **Pending** (needs a live server; not run in this environment) | `webhook_send` uses the in-memory token of a webhook created in this process first, then any token `GET webhooks/{id}` returns. With neither, it fails with an explanation. Both paths are covered by `FakeDiscord` (`set_webhook_tokens_returned`) and `crates/guildsmith-discord/tests/webhooks_path.rs`. |
+| **T074**: does Discord's CDN return uploaded emoji, sticker and sound bytes unchanged? | **Pending** (needs a live server; not run in this environment) | Plans compare `blake3` of the local file with `blake3` of the CDN bytes (E7). If a kind turns out to be re-encoded, its convergence test is the gate: open a follow-up to use decoded-pixel comparison (`pixel-compare` feature, off by default) for that kind. |

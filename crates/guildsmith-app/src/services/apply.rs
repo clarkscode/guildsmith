@@ -6,29 +6,56 @@
 //!    the hash belongs to another plan.
 //! 4. Refuse if preflight finds any problem, listing all of them.
 //! 5. Run the ops in order, reporting progress; stop at the first error, never retry.
+//! 6. Report each new webhook's URL once (`secrets`, never logged or cached) and the ids to
+//!    write back into the spec file (`written_ids`, research E8/E9).
 
 use std::collections::BTreeMap;
 
 use guildsmith_core::hash::is_plan_hash;
 use guildsmith_core::planner::positions::{channel_positions, role_positions};
-use guildsmith_core::planner::{ChannelAttrs, Op, OpKind, OverwriteOp, Ref, RoleAttrs, ScopeOrder};
+use guildsmith_core::planner::{ChannelAttrs, Op, OpKind, OverwriteOp, Ref, RoleAttrs, ScopeOrder, Written};
 use guildsmith_core::snapshot::LiveOverwrite;
 use guildsmith_core::{Id, Plan};
 use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::App;
+use crate::assets::Caller;
 use crate::error::ServiceError;
 use crate::policy::{Refusal, RefusalKind, audit_reason};
 use crate::ports::{ChannelFields, ChannelPosition, DiscordPort, PortError, RoleFields, RolePosition};
 use crate::preflight;
 use crate::services::{guilds, plan};
 
+mod kinds;
+
 /// The op that stopped an apply.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct FailedOp {
     pub summary: String,
     pub error: String,
+}
+
+/// A new webhook's URL, shown once (research E8).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct CreatedSecret {
+    /// The webhook's name.
+    pub webhook: String,
+    /// Secret: anyone with this URL can post as the webhook. Copy it now; it isn't shown again.
+    pub url: String,
+}
+
+/// An id to write into the spec file: `path.field = value`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct WrittenId {
+    /// The item, e.g. `emoji[0]`.
+    pub path: String,
+    /// `id`, or `code` for invites.
+    pub field: String,
+    pub value: String,
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub spec_path: guildsmith_core::spec::SpecPath,
 }
 
 /// What happened during an apply.
@@ -40,10 +67,20 @@ pub struct ApplyReport {
     pub failed: Option<FailedOp>,
     /// Ops not attempted because an earlier one failed.
     pub skipped: Vec<String>,
+    /// URLs of webhooks this apply created: secrets, shown once.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub secrets: Vec<CreatedSecret>,
+    /// Ids of items the spec listed without one, to write back into the file.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub written_ids: Vec<WrittenId>,
     /// Ids of created items, by plan key.
     #[serde(skip)]
     #[schemars(skip)]
     pub created: BTreeMap<String, Id>,
+    /// Codes of created invites, by plan key.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub codes: BTreeMap<String, String>,
 }
 
 impl ApplyReport {
@@ -91,7 +128,8 @@ pub fn preflight_refusal(problems: &[preflight::PreflightProblem]) -> Refusal {
     .with_details(serde_json::to_value(problems).unwrap_or_default())
 }
 
-/// Applies the plan for `text` on `guild`, if its hash is `plan_hash`.
+/// Applies the plan for `text` on `guild`, if its hash is `plan_hash`. Files are read as an
+/// MCP tool would; see [`apply_in`].
 pub async fn apply<P: DiscordPort>(
     app: &App<P>,
     guild: Option<&str>,
@@ -99,11 +137,23 @@ pub async fn apply<P: DiscordPort>(
     plan_hash: &str,
     progress: &mut (dyn FnMut(&Progress) + Send),
 ) -> Result<ApplyReport, ServiceError> {
+    apply_in(app, guild, text, plan_hash, Caller::Mcp { base: None }, progress).await
+}
+
+/// [`apply`], reading the spec's files as `caller` may (research E7).
+pub async fn apply_in<P: DiscordPort>(
+    app: &App<P>,
+    guild: Option<&str>,
+    text: &str,
+    plan_hash: &str,
+    caller: Caller<'_>,
+    progress: &mut (dyn FnMut(&Progress) + Send),
+) -> Result<ApplyReport, ServiceError> {
     app.policy.ensure_writable()?;
     let spec = plan::parse_spec(text)?;
     let id = guilds::resolve(app, guild).await?;
     let snapshot = app.fresh_snapshot(id).await?;
-    let fresh = plan::build(&spec, &snapshot)?;
+    let fresh = plan::build(app, id, &spec, &snapshot, caller).await?;
     if fresh.hash != plan_hash.trim() {
         return Err(mismatch(plan_hash.trim()).into());
     }
@@ -111,9 +161,27 @@ pub async fn apply<P: DiscordPort>(
     if !problems.is_empty() {
         return Err(preflight_refusal(&problems).into());
     }
-    let report = run(app, id, &fresh, progress).await;
+    let mut report = run(app, id, &fresh, caller, progress).await;
+    report.written_ids = written(&fresh, &report);
     app.invalidate(id);
     Ok(report)
+}
+
+/// The ids to write back that are known: matched items, and items whose create ran.
+fn written(plan: &Plan, report: &ApplyReport) -> Vec<WrittenId> {
+    plan.write_ids
+        .iter()
+        .filter_map(|w| {
+            let value = match &w.value {
+                Written::Id(id) => id.to_string(),
+                Written::Code(c) => c.clone(),
+                Written::New(key) => {
+                    report.created.get(key).map(ToString::to_string).or_else(|| report.codes.get(key).cloned())?
+                }
+            };
+            Some(WrittenId { path: w.path.to_string(), field: w.field.to_owned(), value, spec_path: w.path.clone() })
+        })
+        .collect()
 }
 
 /// Runs every op in order, stopping at the first error.
@@ -121,13 +189,21 @@ async fn run<P: DiscordPort>(
     app: &App<P>,
     guild: Id,
     plan: &Plan,
+    caller: Caller<'_>,
     progress: &mut (dyn FnMut(&Progress) + Send),
 ) -> ApplyReport {
     let mut report = ApplyReport::default();
     let total = plan.ops.len();
     for (i, op) in plan.ops.iter().enumerate() {
         progress(&Progress { index: i + 1, total, summary: op.summary.clone() });
-        let mut exec = Exec { app, guild, created: &mut report.created };
+        let mut exec = Exec {
+            app,
+            guild,
+            caller,
+            created: &mut report.created,
+            codes: &mut report.codes,
+            secrets: &mut report.secrets,
+        };
         match exec.op(op).await {
             Ok(()) => report.applied.push(op.summary.clone()),
             Err(e) => {
@@ -144,7 +220,10 @@ async fn run<P: DiscordPort>(
 struct Exec<'a, P> {
     app: &'a App<P>,
     guild: Id,
+    caller: Caller<'a>,
     created: &'a mut BTreeMap<String, Id>,
+    codes: &'a mut BTreeMap<String, String>,
+    secrets: &'a mut Vec<CreatedSecret>,
 }
 
 impl<P: DiscordPort> Exec<'_, P> {
@@ -204,7 +283,7 @@ impl<P: DiscordPort> Exec<'_, P> {
         self.app.port.reorder_channels(self.guild, &positions, reason).await
     }
 
-    async fn op(&mut self, op: &Op) -> Result<(), PortError> {
+    async fn op(&mut self, op: &Op) -> Result<(), ServiceError> {
         let (port, guild) = (&self.app.port, self.guild);
         let reason = audit_reason(&op.summary, None);
         match &op.kind {
@@ -243,6 +322,7 @@ impl<P: DiscordPort> Exec<'_, P> {
             OpKind::ReorderChannels { scopes } => self.reorder_channels(scopes, &reason).await?,
             OpKind::DeleteChannel { id } => port.delete_channel(guild, *id, &reason).await?,
             OpKind::DeleteRole { id } => port.delete_role(guild, *id, &reason).await?,
+            other => self.kind(other, &reason).await?,
         }
         Ok(())
     }

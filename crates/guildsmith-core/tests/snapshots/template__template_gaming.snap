@@ -1,0 +1,86 @@
+---
+source: crates/guildsmith-core/tests/template.rs
+expression: text
+---
+#:schema https://raw.githubusercontent.com/clarkscode/guildsmith/main/schema/guild.schema.json
+# Imported by guildsmith 0.0.0-test from the template "Gaming" (hgM48av5Q69A) on 2026-10-20.
+# Template ids are placeholders, so this file has none: items are matched by name when it is
+# planned. guildsmith never creates servers (bots can't); plan this against a server you made.
+
+[guild]
+name = "Gaming"  # informational
+
+# Roles are listed highest first.
+[[roles]]
+name = "Moderators"
+color = "#F1C40F"
+hoist = true
+mentionable = false
+permissions = ["ban_members", "kick_members", "manage_roles", "moderate_members"]
+
+[[roles]]
+name = "Gamers"
+color = "#3498DB"
+hoist = true
+mentionable = true
+permissions = []
+
+[[roles]]
+name = "@everyone"
+permissions = ["add_reactions", "attach_files", "change_nickname", "connect", "create_instant_invite", "embed_links", "mention_everyone", "read_message_history", "request_to_speak", "send_messages", "send_tts_messages", "speak", "stream", "use_application_commands", "use_external_emojis", "use_vad", "view_channel"]
+
+[[categories]]
+name = "Text Channels"
+overwrites = []
+
+  [[categories.channels]]
+  name = "general"
+  kind = "text"
+  nsfw = false
+  slowmode = 0
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "clips-and-highlights"
+  kind = "text"
+  topic = "Show off your best plays"
+  nsfw = false
+  slowmode = 30
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "mod-chat"
+  kind = "text"
+  nsfw = false
+  slowmode = 0
+  overwrites = [
+    { target = "@everyone", deny = ["view_channel"] },
+    { target = "@Moderators", allow = ["view_channel"] },
+  ]
+
+[[categories]]
+name = "Voice Channels"
+overwrites = []
+
+  [[categories.channels]]
+  name = "Lobby"
+  kind = "voice"
+  nsfw = false
+  bitrate = 64000
+  user_limit = 0
+  rtc_region = "auto"
+  sync_permissions = true
+
+  [[categories.channels]]
+  name = "Gaming"
+  kind = "voice"
+  nsfw = false
+  bitrate = 96000
+  user_limit = 5
+  rtc_region = "auto"
+  sync_permissions = true
+
+[prune]
+roles = false
+categories = false
+channels = false

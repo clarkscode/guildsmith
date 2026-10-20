@@ -8,7 +8,7 @@ use guildsmith_core::Id;
 #[test]
 fn allowlist_refuses_other_servers() {
     let allow = parse_allowlist("123, 456").unwrap();
-    let policy = Policy { allowlist: Some(allow), read_only: false, toolsets: BTreeSet::from([Toolset::Core]) };
+    let policy = Policy { allowlist: Some(allow), ..Policy::default() };
     assert!(policy.ensure_allowed(Id(123)).is_ok());
     assert!(policy.ensure_allowed(Id(456)).is_ok());
     let r = policy.ensure_allowed(Id(789)).unwrap_err();
@@ -19,7 +19,7 @@ fn allowlist_refuses_other_servers() {
 
 #[test]
 fn no_allowlist_allows_everything() {
-    let policy = Policy { allowlist: None, read_only: false, toolsets: BTreeSet::from([Toolset::Core]) };
+    let policy = Policy::default();
     assert!(policy.ensure_allowed(Id(1)).is_ok());
     assert!(policy.allowlist_warning().is_some());
 }
@@ -32,7 +32,7 @@ fn bad_allowlist_entries_are_errors() {
 
 #[test]
 fn read_only_refuses_writes() {
-    let policy = Policy { allowlist: None, read_only: true, toolsets: BTreeSet::from([Toolset::Core]) };
+    let policy = Policy { read_only: true, ..Policy::default() };
     let r = policy.ensure_writable().unwrap_err();
     assert_eq!(r.kind, RefusalKind::ReadOnly);
     let policy = Policy { read_only: false, ..policy };
@@ -50,8 +50,8 @@ fn toolsets_parse() {
 
 #[test]
 fn unknown_toolset_lists_valid_names() {
-    let err = parse_toolsets("core,events").unwrap_err();
+    let err = parse_toolsets("core,gateway").unwrap_err();
     let msg = err.to_string();
-    assert!(msg.contains("events"), "{msg}");
-    assert!(msg.contains("core") && msg.contains("moderation"), "{msg}");
+    assert!(msg.contains("gateway"), "{msg}");
+    assert!(msg.contains("core") && msg.contains("moderation") && msg.contains("raw"), "{msg}");
 }

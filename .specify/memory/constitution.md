@@ -1,3 +1,16 @@
+<!--
+Sync Impact Report
+- Version change: 1.0.0 → 1.1.0 (MINOR: materially expanded guidance in principle IV)
+- Modified principles: IV. Lean Agent Interface (title unchanged): adds a scoped exception to
+  "never raw Discord JSON" for the opt-in `raw` group (`discord_request`, feature 002 US10,
+  ADR-005), with the conditions it holds under.
+- Added sections: none
+- Removed sections: none
+- Templates: plan, spec and tasks templates reference the Constitution Check generically; no
+  change needed.
+- Follow-up: record the decision in docs/adr/005-raw-group.md; resolve T106 in
+  specs/002-extended-toolsets/tasks.md.
+-->
 # guildsmith Constitution
 
 ## Core Principles
@@ -62,6 +75,16 @@ Agent context is a cost paid on every turn, so the MCP surface MUST stay small:
 - Extra capabilities go into opt-in tool groups.
 - Tool descriptions are one sentence plus parameter docs; longer guidance belongs in plugin skills.
 - Results MUST be compact: key fields by default, paging for long lists, never raw Discord JSON.
+- **Exception: the opt-in `raw` group.** Its one tool, `discord_request`, MAY return Discord's
+  JSON, because it exists for endpoints no dedicated tool covers (ADR-005). The exception holds
+  only while all of these do:
+  - the group is off by default and the operator can block it (`GUILDSMITH_TOOLSETS_BLOCK`);
+  - its description points the agent to the dedicated tools first;
+  - every response is wrapped as untrusted content, has tokens and webhook URLs redacted, and is
+    cut to 50,000 characters;
+  - every other safety rule applies unchanged: the allowlist, read-only mode, a preview until
+    confirmation for every method but GET, and an audit-log reason on writes.
+  No other tool may return raw Discord JSON.
 - Every tool MUST carry a correct `readOnlyHint` or `destructiveHint` annotation.
 - stdout is reserved for the MCP protocol; all logging MUST go to stderr.
 
@@ -122,4 +145,4 @@ feature plan conflicts with it, the constitution wins until it is amended.
 - **Compliance:** every feature plan runs the Constitution Check, and reviews verify that changes
   follow the principles. Unjustified violations block merge.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-19 | **Last Amended**: 2026-10-19
+**Version**: 1.1.0 | **Ratified**: 2026-10-19 | **Last Amended**: 2026-10-20

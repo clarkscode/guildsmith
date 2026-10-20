@@ -1,5 +1,6 @@
 //! Logging: `tracing` to **stderr only** (stdout carries the MCP protocol), with every line
-//! scrubbed of the bot token and of `Authorization` header values (FR-021).
+//! scrubbed of the bot token, `Authorization` header values (FR-021), and webhook tokens in
+//! `webhooks/<id>/<token>` paths and URLs (002 FR-030).
 
 use std::io::{self, Write};
 use std::sync::Arc;
@@ -30,8 +31,35 @@ impl Scrubber {
         for s in self.secrets.iter() {
             out = out.replace(s.as_str(), REDACTED);
         }
-        scrub_authorization(&out)
+        scrub_webhooks(&scrub_authorization(&out))
     }
+}
+
+/// Replaces the token in every `webhooks/<id>/<token>`.
+fn scrub_webhooks(text: &str) -> String {
+    const MARK: &str = "webhooks/";
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(MARK) {
+        let after = &rest[at + MARK.len()..];
+        let digits = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(after.len());
+        let token_start = &after[digits..];
+        if digits > 0
+            && let Some(tail) = token_start.strip_prefix('/')
+        {
+            let len = tail.find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_')).unwrap_or(tail.len());
+            if len > 0 {
+                out.push_str(&rest[..=at + MARK.len() + digits]);
+                out.push_str(REDACTED);
+                rest = &tail[len..];
+                continue;
+            }
+        }
+        out.push_str(&rest[..at + MARK.len()]);
+        rest = after;
+    }
+    out.push_str(rest);
+    out
 }
 
 fn scrub_authorization(text: &str) -> String {
@@ -115,6 +143,17 @@ mod tests {
     fn known_secrets_are_redacted() {
         let s = Scrubber::new(vec!["gs-canary-7f3a-long".to_owned()]);
         assert_eq!(s.scrub("token=gs-canary-7f3a-long done"), "token=<redacted> done");
+    }
+
+    #[test]
+    fn webhook_tokens_in_paths_and_urls_are_redacted() {
+        let s = Scrubber::default();
+        let line = r#"req{method="POST" url="https://discord.com/api/v10/webhooks/123/abc_DEF-xyz?wait=true"}"#;
+        let out = s.scrub(line);
+        assert!(!out.contains("abc_DEF-xyz"), "{out}");
+        assert!(out.contains("webhooks/123/<redacted>?wait=true"), "{out}");
+        assert_eq!(s.scrub("GET webhooks/123 done"), "GET webhooks/123 done", "no token, nothing to hide");
+        assert_eq!(s.scrub("see webhooks/ and webhooks/x/y"), "see webhooks/ and webhooks/x/y");
     }
 
     #[test]

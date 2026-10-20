@@ -13,6 +13,7 @@ use serde::Deserialize;
 
 use crate::policy::{self, Policy, Toolset};
 use crate::secret::Secret;
+use crate::toolsets;
 
 /// Reads environment variables. Lets tests supply their own.
 pub trait Env {
@@ -166,6 +167,8 @@ pub struct Config {
     pub allowlist: Option<BTreeSet<Id>>,
     pub read_only: bool,
     pub toolsets: BTreeSet<Toolset>,
+    pub blocked: BTreeSet<Toolset>,
+    pub file_roots: Vec<PathBuf>,
     pub log: Option<String>,
     /// The file settings were read from, if any.
     pub file: Option<PathBuf>,
@@ -176,7 +179,13 @@ pub struct Config {
 impl Config {
     #[must_use]
     pub fn policy(&self) -> Policy {
-        Policy { allowlist: self.allowlist.clone(), read_only: self.read_only, toolsets: self.toolsets.clone() }
+        Policy {
+            allowlist: self.allowlist.clone(),
+            read_only: self.read_only,
+            toolsets: self.toolsets.difference(&self.blocked).copied().collect(),
+            blocked: self.blocked.clone(),
+            file_roots: self.file_roots.clone(),
+        }
     }
 }
 
@@ -208,6 +217,8 @@ struct FileConfig {
     guilds: Option<Vec<String>>,
     read_only: Option<bool>,
     toolsets: Option<Vec<String>>,
+    toolsets_block: Option<Vec<String>>,
+    file_roots: Option<Vec<PathBuf>>,
     log: Option<String>,
 }
 
@@ -275,7 +286,31 @@ pub fn load(opts: &LoadOptions<'_>) -> Result<Config, ConfigError> {
     let toolsets = policy::parse_toolsets(toolsets_raw.as_deref().unwrap_or("default"))
         .map_err(|e| ConfigError::Invalid(e.to_string()))?;
 
+    let block_raw =
+        opts.env.var("GUILDSMITH_TOOLSETS_BLOCK").or_else(|| file.toolsets_block.as_ref().map(|t| t.join(",")));
+    let blocked = toolsets::parse_blocked(block_raw.as_deref().unwrap_or(""))
+        .map_err(|e| ConfigError::Invalid(format!("GUILDSMITH_TOOLSETS_BLOCK: {e}")))?;
+    for t in toolsets.intersection(&blocked) {
+        warnings.push(format!("the {t} toolset is both enabled and blocked; the block wins"));
+    }
+
+    let file_roots = match opts.env.var("GUILDSMITH_FILE_ROOTS") {
+        Some(v) => std::env::split_paths(&v).filter(|p| !p.as_os_str().is_empty()).collect(),
+        None => file.file_roots.unwrap_or_default(),
+    };
+
     let log = opts.env.var("GUILDSMITH_LOG").or(file.log);
 
-    Ok(Config { token, token_source, allowlist, read_only, toolsets, log, file: file_path, warnings })
+    Ok(Config {
+        token,
+        token_source,
+        allowlist,
+        read_only,
+        toolsets,
+        blocked,
+        file_roots,
+        log,
+        file: file_path,
+        warnings,
+    })
 }

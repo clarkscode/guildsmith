@@ -154,7 +154,8 @@ fn spec(seed: u64) -> GuildSpec {
         })
         .collect();
     let channels = g.subset(CHANNELS, 3).into_iter().map(|n| channel(&mut g, n, &roles, false)).collect();
-    let prune = PruneSpec { roles: g.chance(50), categories: g.chance(50), channels: g.chance(50) };
+    let prune =
+        PruneSpec { roles: g.chance(50), categories: g.chance(50), channels: g.chance(50), ..PruneSpec::default() };
     GuildSpec { roles: role_specs, categories, channels, prune, ..GuildSpec::default() }
 }
 
@@ -307,7 +308,8 @@ fn edited_export(snapshot: &Snapshot, seed: u64) -> GuildSpec {
             list.retain(keep);
         }
     }
-    sp.prune = PruneSpec { roles: g.chance(50), categories: g.chance(50), channels: g.chance(50) };
+    sp.prune =
+        PruneSpec { roles: g.chance(50), categories: g.chance(50), channels: g.chance(50), ..PruneSpec::default() };
     sp
 }
 
@@ -367,6 +369,7 @@ fn ops_are_grouped_in_r8_order() {
         OpKind::ReorderChannels { .. } => 4,
         OpKind::DeleteChannel { .. } => 5,
         OpKind::DeleteRole { .. } => 7,
+        other => panic!("v1 specs plan only structure ops: {other:?}"),
     };
     let ranks: Vec<i32> = plan.ops.iter().map(rank).collect();
     let mut sorted = ranks.clone();
