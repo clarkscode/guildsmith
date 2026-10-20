@@ -1,9 +1,9 @@
 # Publishes the npm packages (research R15, ADR-002): one @guildsmith/<platform> package per dist
 # target, then the `guildsmith` launcher that lists them as optionalDependencies.
 #
-# Called by release.yml (dist `publish-jobs = ["./publish-npm"]`) after the dist build. The job
-# runs in the `release` environment, so it waits for a manual approval and only that environment
-# holds NPM_TOKEN (docs/release.md).
+# Enable in dist-workspace.toml after the first manual publication and npm Trusted Publisher
+# setup. npm must trust the calling workflow, release.yml, and the release environment.
+# See docs/release.md. This workflow uses OIDC and needs no NPM_TOKEN.
 name: Publish npm
 
 on:
@@ -17,16 +17,22 @@ jobs:
   npm:
     runs-on: ubuntu-22.04
     environment: release
-    # Permissions come from the calling job in release.yml (id-token: write, for npm provenance).
+    permissions:
+      id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check npm supports Trusted Publishing
+        run: |
+          npm --version
+          node -e "const v = require('child_process').execFileSync('npm', ['--version'], {encoding:'utf8'}).trim().split('.').map(Number); if (v[0] < 11 || (v[0] === 11 && (v[1] < 5 || (v[1] === 5 && v[2] < 1)))) process.exit(1)"
       - name: Fetch dist artifacts
         uses: actions/download-artifact@v8
         with:
@@ -36,17 +42,20 @@ jobs:
       - name: Stage packages
         run: cargo xtask npm-pack target/distrib --out target/npm
       - name: Publish (platform packages first)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           for dir in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64 guildsmith; do
             pkg="target/npm/$dir"
             spec="$(node -p "const p = require('./$pkg/package.json'); p.name + '@' + p.version")"
             # Re-running after a partial failure skips what is already on the registry.
-            if npm view "$spec" version >/dev/null 2>&1; then
+            if npm view "$spec" version --json > "$RUNNER_TEMP/npm-view.json" 2> "$RUNNER_TEMP/npm-view.err"; then
               echo "$spec is already published; skipping"
               continue
             fi
+            # Only E404 means unpublished; don't turn authentication/network errors into publishes.
+            node -e "const fs = require('fs'); const p = process.env.RUNNER_TEMP + '/npm-view.json'; try { if (JSON.parse(fs.readFileSync(p)).error.code === 'E404') process.exit(0); } catch {} process.exit(1)" || {
+              cat "$RUNNER_TEMP/npm-view.err"
+              exit 1
+            }
             npm publish "$pkg" --access public --provenance
           done
