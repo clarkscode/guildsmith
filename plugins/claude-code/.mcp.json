@@ -2,7 +2,11 @@
   "mcpServers": {
     "guildsmith": {
       "command": "npx",
-      "args": ["-y", "guildsmith@0.1.0", "mcp"],
+      "args": [
+        "-y",
+        "guildsmith@0.1.1",
+        "mcp"
+      ],
       "env": {
         "DISCORD_TOKEN": "${user_config.discord_token}",
         "GUILDSMITH_GUILDS": "${user_config.guilds}"

@@ -5,6 +5,17 @@ All notable changes to guildsmith are listed here. The format follows
 [Semantic Versioning](https://semver.org/). Changes to the default tool set, the spec file
 format or the safety policy are always called out.
 
+## 0.1.1
+
+### Fixed
+
+- Define the build profile required by cargo-dist.
+
+### Added
+
+- Release helper for version synchronization, validation and publication.
+- npm Trusted Publishing workflow, ready to enable after initial publication.
+
 ## 0.1.0
 
 The first release: an MCP server and CLI for managing Discord servers, with plugins for Claude

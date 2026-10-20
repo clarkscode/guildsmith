@@ -1,6 +1,6 @@
 {
   "name": "guildsmith",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fast MCP server and CLI for building and managing Discord servers.",
   "license": "MIT OR Apache-2.0",
   "repository": {
@@ -8,19 +8,28 @@
     "url": "git+https://github.com/clarkscode/guildsmith.git"
   },
   "homepage": "https://github.com/clarkscode/guildsmith",
-  "keywords": ["discord", "mcp", "cli", "infrastructure-as-code"],
+  "keywords": [
+    "discord",
+    "mcp",
+    "cli",
+    "infrastructure-as-code"
+  ],
   "bin": {
     "guildsmith": "bin/guildsmith.js"
   },
-  "files": ["bin", "LICENSE-MIT", "LICENSE-APACHE"],
+  "files": [
+    "bin",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
   "engines": {
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@guildsmith/darwin-arm64": "0.1.0",
-    "@guildsmith/darwin-x64": "0.1.0",
-    "@guildsmith/linux-arm64": "0.1.0",
-    "@guildsmith/linux-x64": "0.1.0",
-    "@guildsmith/win32-x64": "0.1.0"
+    "@guildsmith/darwin-arm64": "0.1.1",
+    "@guildsmith/darwin-x64": "0.1.1",
+    "@guildsmith/linux-arm64": "0.1.1",
+    "@guildsmith/linux-x64": "0.1.1",
+    "@guildsmith/win32-x64": "0.1.1"
   }
 }

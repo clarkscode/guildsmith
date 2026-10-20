@@ -11,7 +11,7 @@ members = [
 default-members = ["crates/guildsmith"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT OR Apache-2.0"
@@ -20,10 +20,10 @@ homepage = "https://github.com/clarkscode/guildsmith"
 
 [workspace.dependencies]
 # Internal crates.
-guildsmith-core = { path = "crates/guildsmith-core", version = "0.1.0" }
-guildsmith-app = { path = "crates/guildsmith-app", version = "0.1.0" }
-guildsmith-discord = { path = "crates/guildsmith-discord", version = "0.1.0" }
-guildsmith-mcp = { path = "crates/guildsmith-mcp", version = "0.1.0" }
+guildsmith-core = { path = "crates/guildsmith-core", version = "0.1.1" }
+guildsmith-app = { path = "crates/guildsmith-app", version = "0.1.1" }
+guildsmith-discord = { path = "crates/guildsmith-discord", version = "0.1.1" }
+guildsmith-mcp = { path = "crates/guildsmith-mcp", version = "0.1.1" }
 
 # Discord REST (research R2). rustls with webpki roots so musl builds are fully static.
 twilight-http = { version = "0.17.1", default-features = false, features = ["rustls-webpki-roots", "decompression"] }
