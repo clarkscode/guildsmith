@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme = "../../README.md"
-keywords = ["discord", "mcp", "cli", "infrastructure-as-code"]
+keywords = ["discord", "mcp", "cli", "iac"]
 categories = ["command-line-utilities"]
 
 [[bin]]

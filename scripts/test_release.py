@@ -36,6 +36,30 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release.stable_version(value)
 
+    def test_repository_crate_keywords_are_publishable(self):
+        release.check_crate_keywords()
+
+    def test_crate_keywords_reject_registry_invalid_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manifest = root / "crates/guildsmith/Cargo.toml"
+            manifest.parent.mkdir(parents=True)
+            with patch.object(release, "ROOT", root), patch.object(release, "CRATES", ("guildsmith",)):
+                for keywords in (
+                    ["infrastructure-as-code"],
+                    ["discord", "mcp", "cli", "iac", "bot", "tools"],
+                    ["has spaces"],
+                    ["-discord"],
+                    ["café"],
+                    [""],
+                ):
+                    with self.subTest(keywords=keywords):
+                        manifest.write_text("[package]\nkeywords = " + json.dumps(keywords, ensure_ascii=False))
+                        with self.assertRaisesRegex(ValueError, "guildsmith:"):
+                            release.check_crate_keywords()
+                manifest.write_text('[package]\nkeywords = ["discord", "mcp", "cli", "iac"]')
+                release.check_crate_keywords()
+
     def test_version_update_synchronizes_all_channels_without_writing(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

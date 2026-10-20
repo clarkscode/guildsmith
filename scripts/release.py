@@ -117,7 +117,23 @@ def version_updates(new):
     return changes
 
 
+def check_crate_keywords():
+    """Check crates.io keyword restrictions before starting a release."""
+    for name in CRATES:
+        path = ROOT / "crates" / name / "Cargo.toml"
+        keywords = tomllib.loads(path.read_text())["package"].get("keywords", [])
+        if len(keywords) > 5:
+            raise ValueError(f"{name}: crates.io allows at most five keywords.")
+        for keyword in keywords:
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_+-]{0,19}", keyword):
+                raise ValueError(
+                    f"{name}: invalid crates.io keyword {keyword!r}; use 1–20 ASCII "
+                    "letters, digits, _, - or +, starting with a letter or digit."
+                )
+
+
 def check_versions():
+    check_crate_keywords()
     expected = version()
     stable_version(expected)
     workspace = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]
